@@ -19,6 +19,7 @@
           <thead>
             <tr>
               <th>Предмет</th>
+              <th>Закріплені викладачі</th>
               <th></th>
             </tr>
           </thead>
@@ -26,6 +27,16 @@
             @for (subject of rows(); track subject.id) {
               <tr>
                 <td><strong>{{ subject.name }}</strong></td>
+                <td>
+                  <button
+                    class="subject-teachers-count"
+                    type="button"
+                    [attr.aria-label]="'Показати викладачів предмета ' + subject.name"
+                    (click)="openAssignedTeachers(subject)"
+                  >
+                    {{ assignedTeachersCount(subject) }}
+                  </button>
+                </td>
                 <td>
                   <button class="subject-edit" type="button" title="Редагувати предмет" aria-label="Редагувати предмет" (click)="openEdit(subject)">
                     <ui-icon name="pencil" />
@@ -50,4 +61,34 @@
       </div>
     </div>
   </ui-side-panel>
+
+  @if (selectedTeachersSubject()) {
+    <button class="teachers-modal__backdrop" type="button" aria-label="Закрити" (click)="closeAssignedTeachers()"></button>
+    <section class="teachers-modal" role="dialog" aria-modal="true" [attr.aria-label]="'Викладачі предмета ' + selectedTeachersSubject()!.name">
+      <header class="teachers-modal__header">
+        <div>
+          <span>Предмет</span>
+          <h2>{{ selectedTeachersSubject()!.name }}</h2>
+        </div>
+        <button class="teachers-modal__close" type="button" aria-label="Закрити" (click)="closeAssignedTeachers()">
+          <ui-icon name="x" />
+        </button>
+      </header>
+
+      @if (assignedTeachers().length) {
+        <ul class="assigned-teachers">
+          @for (teacher of assignedTeachers(); track teacher.id) {
+            <li>
+              <strong>{{ teacher.fullName }}</strong>
+              @if (teacher.isClassTeacher) {
+                <span>Класний керівник</span>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <ui-empty-state title="Викладачів не закріплено" description="Поки за цим предметом немає жодного викладача." icon="users" />
+      }
+    </section>
+  }
 </section>

@@ -163,6 +163,10 @@ table tbody tr:hover > .cell--changed {
   background: var(--color-surface);
 }
 
+.attendance-page tbody tr:hover > td:first-child {
+  background: #f8f7ff;
+}
+
 .attendance-page thead th:first-child {
   left: 0;
   z-index: 3;

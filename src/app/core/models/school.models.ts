@@ -21,7 +21,9 @@ export interface SchoolClass {
 export interface Teacher {
   id: number;
   fullName: string;
-  subject: string;
+  subject?: string;
+  subjectIds?: number[];
+  isClassTeacher?: boolean;
 }
 
 export interface Subject {

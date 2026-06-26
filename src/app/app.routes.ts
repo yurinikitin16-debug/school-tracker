@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AttendancePageComponent } from './features/attendance/attendance-page.component';
 import { ClassesPageComponent } from './features/classes/classes-page.component';
-import { PlaceholderPageComponent } from './features/placeholder-page/placeholder-page.component';
 import { ReportsPageComponent } from './features/reports/reports-page.component';
 import { SchedulePageComponent } from './features/schedule/schedule-page.component';
 import { SettingsPageComponent } from './features/settings/settings-page.component';
@@ -11,10 +10,10 @@ import { TeachersPageComponent } from './features/teachers/teachers-page.compone
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'attendance' },
-  { path: 'dashboard', component: PlaceholderPageComponent, data: { title: 'Головна' } },
+  { path: 'dashboard', redirectTo: 'attendance' },
   { path: 'attendance', component: AttendancePageComponent },
   { path: 'schedule', component: SchedulePageComponent },
-  { path: 'lessons', component: PlaceholderPageComponent, data: { title: 'Уроки' } },
+  { path: 'lessons', redirectTo: 'schedule' },
   { path: 'students', component: StudentsPageComponent },
   { path: 'classes', component: ClassesPageComponent },
   { path: 'subjects', component: SubjectsPageComponent },

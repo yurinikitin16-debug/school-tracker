@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { Subject } from '../../core/models/school.models';
+import { forkJoin } from 'rxjs';
+import { Subject, Teacher } from '../../core/models/school.models';
 import { SchoolDataService } from '../../core/services/school-data.service';
 import { UiEmptyStateComponent } from '../../shared/ui/empty-state/ui-empty-state.component';
 import { UiIconComponent } from '../../shared/ui/icon/ui-icon.component';
@@ -27,8 +28,10 @@ export class SubjectsPageComponent {
   private readonly schoolData = inject(SchoolDataService);
 
   readonly subjects = signal<Subject[]>([]);
+  readonly teachers = signal<Teacher[]>([]);
   readonly searchTerm = signal('');
   readonly selectedSubjectId = signal<number | null>(null);
+  readonly selectedTeachersSubjectId = signal<number | null>(null);
   readonly draftName = signal('');
 
   readonly rows = computed(() => {
@@ -42,9 +45,25 @@ export class SubjectsPageComponent {
   readonly isPanelOpen = computed(() => this.selectedSubjectId() !== null);
   readonly isCreatingSubject = computed(() => this.selectedSubjectId() === 0);
   readonly panelTitle = computed(() => this.isCreatingSubject() ? 'Додати предмет' : 'Редагувати предмет');
+  readonly selectedTeachersSubject = computed(() =>
+    this.subjects().find((subject) => subject.id === this.selectedTeachersSubjectId()),
+  );
+  readonly assignedTeachers = computed(() => {
+    const subject = this.selectedTeachersSubject();
+
+    return subject
+      ? this.teachers().filter((teacher) => this.isTeacherAssignedToSubject(teacher, subject))
+      : [];
+  });
 
   constructor() {
-    this.schoolData.getSubjects().subscribe((subjects) => this.subjects.set(subjects.map((subject) => ({ ...subject }))));
+    forkJoin({
+      subjects: this.schoolData.getSubjects(),
+      teachers: this.schoolData.getTeachers(),
+    }).subscribe(({ subjects, teachers }) => {
+      this.subjects.set(subjects.map((subject) => ({ ...subject })));
+      this.teachers.set(teachers.map((teacher) => ({ ...teacher })));
+    });
   }
 
   openCreate(): void {
@@ -60,6 +79,18 @@ export class SubjectsPageComponent {
   closePanel(): void {
     this.selectedSubjectId.set(null);
     this.draftName.set('');
+  }
+
+  openAssignedTeachers(subject: Subject): void {
+    this.selectedTeachersSubjectId.set(subject.id);
+  }
+
+  closeAssignedTeachers(): void {
+    this.selectedTeachersSubjectId.set(null);
+  }
+
+  assignedTeachersCount(subject: Subject): number {
+    return this.teachers().filter((teacher) => this.isTeacherAssignedToSubject(teacher, subject)).length;
   }
 
   saveSubject(): void {
@@ -81,5 +112,9 @@ export class SubjectsPageComponent {
       subject.id === selectedSubjectId ? { ...subject, name } : subject
     )));
     this.closePanel();
+  }
+
+  private isTeacherAssignedToSubject(teacher: Teacher, subject: Subject): boolean {
+    return teacher.subjectIds?.includes(subject.id) || teacher.subject === subject.name;
   }
 }

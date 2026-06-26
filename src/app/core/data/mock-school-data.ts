@@ -20,12 +20,12 @@ export const MOCK_CLASSES: SchoolClass[] = [
 ];
 
 export const MOCK_TEACHERS: Teacher[] = [
-  { id: 1, fullName: 'Петренко О.С.', subject: 'Математика' },
-  { id: 2, fullName: 'Іваненко Н.М.', subject: 'Українська мова' },
-  { id: 3, fullName: 'Коваленко І.В.', subject: 'Англійська мова' },
-  { id: 4, fullName: 'Мельник В.П.', subject: 'Історія' },
-  { id: 5, fullName: 'Бондар С.І.', subject: 'Фізика' },
-  { id: 6, fullName: 'Грищенко О.В.', subject: 'Інформатика' },
+  { id: 1, fullName: 'Петренко О.С.', subject: 'Математика', subjectIds: [1, 2], isClassTeacher: true },
+  { id: 2, fullName: 'Іваненко Н.М.', subject: 'Українська мова', subjectIds: [2] },
+  { id: 3, fullName: 'Коваленко І.В.', subject: 'Англійська мова', subjectIds: [3, 6] },
+  { id: 4, fullName: 'Мельник В.П.', subject: 'Історія', subjectIds: [4], isClassTeacher: true },
+  { id: 5, fullName: 'Бондар С.І.', subject: 'Фізика', subjectIds: [5, 1] },
+  { id: 6, fullName: 'Грищенко О.В.', subject: 'Інформатика', subjectIds: [6] },
 ];
 
 export const MOCK_SUBJECTS: Subject[] = [

@@ -25,7 +25,6 @@ export class AppShellComponent {
   readonly currentUrl = signal(this.router.url);
 
   readonly navItems: NavItem[] = [
-    { label: 'Головна', route: '/dashboard', icon: 'home' },
     { label: 'Відвідування', route: '/attendance', icon: 'check' },
     { label: 'Звіти', route: '/reports', icon: 'chart' },
     { label: 'Налаштування', route: '/settings', icon: 'settings' },
@@ -33,7 +32,6 @@ export class AppShellComponent {
 
   readonly directoryItems: NavItem[] = [
     { label: 'Розклад', route: '/schedule', icon: 'calendar' },
-    { label: 'Уроки', route: '/lessons', icon: 'book-open' },
     { label: 'Учні', route: '/students', icon: 'users' },
     { label: 'Класи', route: '/classes', icon: 'database' },
     { label: 'Предмети', route: '/subjects', icon: 'graduation-cap' },
