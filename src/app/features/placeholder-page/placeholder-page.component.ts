@@ -12,7 +12,7 @@ import { UiPageHeaderComponent } from '../../shared/ui/page-header/ui-page-heade
       <div class="placeholder-card">
         <span>Скоро</span>
         <h2>{{ title }}</h2>
-        <p>Сторінка підключена до навігації. Наповнення будемо додавати окремими кроками.</p>
+        <p>Сторінка підключена до навігації. Наповнення буде незабаром.</p>
       </div>
     </section>
   `,
