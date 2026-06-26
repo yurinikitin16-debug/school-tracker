@@ -1,0 +1,236 @@
+<section class="attendance-page">
+  <ui-page-header title="Відвідування" [eyebrow]="headerDateLabel()" [hasActions]="true">
+    <div class="date-controls">
+      <button class="icon-button" type="button" title="Попередній навчальний день" aria-label="Попередній навчальний день" (click)="moveAttendanceDate(-1)">
+        <ui-icon name="chevron-left" />
+      </button>
+      <ui-date-picker [label]="dateLabel()" [selectedDate]="attendanceDate()" (selectedDateChange)="updateAttendanceDate($event)" />
+      <button class="icon-button" type="button" title="Наступний навчальний день" aria-label="Наступний навчальний день" (click)="moveAttendanceDate(1)">
+        <ui-icon name="chevron-right" />
+      </button>
+      <button class="today-button" type="button" (click)="goToToday()">Сьогодні</button>
+    </div>
+  </ui-page-header>
+
+  <article class="attendance-card">
+    <ui-toolbar>
+      <ui-select
+        class="control control--sm"
+        ariaLabel="Клас"
+        [options]="classOptions()"
+        [value]="selectedClass()"
+        (valueChange)="updateClass($event)"
+      />
+      <ui-select
+        class="control"
+        ariaLabel="Статус"
+        [options]="statusOptions"
+        [value]="selectedStatus()"
+        (valueChange)="updateStatus($event)"
+      />
+      <ui-input
+        class="search-control"
+        icon="search"
+        placeholder="Пошук по учнях..."
+        [value]="searchTerm()"
+        (valueChange)="searchTerm.set($event)"
+      />
+    </ui-toolbar>
+
+    @if (emptyState(); as empty) {
+      <ui-empty-state [title]="empty.title" [description]="empty.description" [icon]="empty.icon" />
+    } @else {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Учень</th>
+            @for (lesson of visibleLessons(); track lesson.id) {
+              <th>
+                <strong>{{ lesson.order }} урок</strong>
+                <small>{{ lesson.subject }}</small>
+              </th>
+            }
+            <th>Пропуски</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.student.id) {
+            <tr>
+              <td>
+                <div class="student-cell">
+                  <button class="student-cell__name" type="button" (click)="openStudentPanel(row)">
+                    <span class="student-name student-name--desktop">{{ row.student.lastName }} {{ row.student.firstName }}</span>
+                    <span class="student-name student-name--mobile">{{ studentShortName(row.student) }}</span>
+                  </button>
+                </div>
+              </td>
+              @for (lesson of visibleLessons(); track lesson.id) {
+                @let status = statusFor(row, lesson.id);
+                <td [class.cell--changed]="isCellChanged(row.student.id, lesson.id)">
+                  <button
+                    class="status-cell"
+                    [ngClass]="{
+                      'status-cell--present': status === 'present',
+                      'status-cell--A': status === 'A',
+                      'status-cell--S': status === 'S',
+                      'status-cell--E': status === 'E',
+                      'status-cell--changed': isCellChanged(row.student.id, lesson.id)
+                    }"
+                    [attr.aria-label]="statusLabel(status)"
+                    type="button"
+                    (click)="openCellEditor(row, lesson)"
+                  >
+                    {{ cellText(row, lesson.id) }}
+                  </button>
+
+                  @if (isEditingCell(row.student.id, lesson.id)) {
+                    <div class="cell-editor">
+                      <select
+                        aria-label="Статус відвідування"
+                        [ngModel]="inlineStatus()"
+                        (ngModelChange)="updateInlineStatus($event)"
+                      >
+                        @for (option of editStatusOptions; track option.value) {
+                          <option [value]="option.value">{{ option.label }}</option>
+                        }
+                      </select>
+
+                      @if (inlineStatus() === 'A') {
+                        <select
+                          aria-label="Причина відсутності"
+                          [ngModel]="inlineReason()"
+                          (ngModelChange)="updateInlineReason($event)"
+                        >
+                          @for (option of reasonOptions; track option.value) {
+                            <option [value]="option.value">{{ option.label }}</option>
+                          }
+                        </select>
+
+                        <input
+                          aria-label="Коментар"
+                          placeholder="Коментар"
+                          [ngModel]="inlineComment()"
+                          (ngModelChange)="updateInlineComment($event)"
+                        />
+                      }
+
+                      <button class="cell-editor__done" type="button" (click)="closeCellEditor()">Готово</button>
+                    </div>
+                  }
+                </td>
+              }
+              <td>
+                <strong [class.missed-danger]="row.missed > 2">{{ row.missed }}</strong>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>Всього пропусків</th>
+            @for (lesson of visibleLessons(); track lesson.id) {
+              <td>
+                <strong [class.missed-danger]="lessonMissedCount(lesson.id) > 2">{{ lessonMissedCount(lesson.id) }}</strong>
+              </td>
+            }
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    }
+
+    <div class="attendance-card__footer">
+      <div class="attendance-card__status" role="status">
+        @if (saveNotice()) {
+          {{ saveNotice() }}
+        } @else if (changedCellCount()) {
+          Змінено клітинок: {{ changedCellCount() }}
+        } @else {
+          Змін немає
+        }
+      </div>
+      <div class="attendance-card__actions">
+        <button class="secondary-button" type="button" [disabled]="!changedCellCount()" (click)="requestDiscardChanges()">
+          Скасувати зміни
+        </button>
+        <button class="primary-button" type="button" [disabled]="!changedCellCount()" (click)="requestSaveChanges()">
+          Зберегти зміни
+        </button>
+      </div>
+    </div>
+  </article>
+
+  <div class="stats-grid">
+    <ui-stat-card label="Всього учнів" [value]="dailySummary().totalStudents" icon="users" tone="primary" />
+    <ui-stat-card label="Присутні весь день" [value]="dailySummary().fullyPresent" icon="check" tone="success" />
+    <ui-stat-card label="Відсутні весь день" [value]="dailySummary().fullyAbsent" icon="x" tone="danger" />
+  </div>
+
+  <ui-side-panel [open]="!!selectedCell()" title="Учень" (closed)="closeAttendanceEditor()">
+    <div class="editor">
+      <section class="editor__summary">
+        <div>
+          <span>Учень</span>
+          <strong>{{ selectedStudent()?.lastName }} {{ selectedStudent()?.firstName }}</strong>
+        </div>
+        <div>
+          <span>Клас</span>
+          <strong>{{ selectedStudent()?.className }}</strong>
+        </div>
+      </section>
+
+      <label class="day-absence">
+        <input
+          type="checkbox"
+          [ngModel]="draftAllDayAbsent()"
+          (ngModelChange)="updateDraftAllDayAbsent($event)"
+        />
+        <span>Не буде присутнім цілий день</span>
+      </label>
+
+      @if (draftAllDayAbsent()) {
+        <ui-select
+          label="Статус"
+          [options]="allDayStatusOptions"
+          [value]="draftStatus()"
+          (valueChange)="updateDraftStatus($event)"
+        />
+
+        @if (draftStatus() === 'A') {
+        <ui-select
+          label="Причина"
+          [options]="reasonOptions"
+          [value]="draftReason()"
+          (valueChange)="draftReason.set($event)"
+        />
+
+        <label class="comment-field">
+          <span>Коментар</span>
+          <textarea
+            rows="4"
+            placeholder="Додайте короткий коментар..."
+            [ngModel]="draftComment()"
+            (ngModelChange)="draftComment.set($event)"
+          ></textarea>
+        </label>
+        }
+      }
+
+      <div class="editor__actions">
+        <button class="secondary-button" type="button" (click)="closeAttendanceEditor()">Скасувати</button>
+        <button class="primary-button" type="button" [disabled]="!draftAllDayAbsent()" (click)="saveAttendance()">Зберегти</button>
+      </div>
+    </div>
+  </ui-side-panel>
+
+  <ui-confirm-dialog
+    [open]="!!confirmationAction()"
+    [title]="confirmationTitle()"
+    [description]="confirmationDescription()"
+    [confirmLabel]="confirmationLabel()"
+    (closed)="closeConfirmation()"
+    (confirmed)="confirmChanges()"
+  />
+</section>

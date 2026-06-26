@@ -1,0 +1,107 @@
+<section class="settings-page">
+  <ui-page-header eyebrow="Керування системою" title="Налаштування" />
+
+  <div class="settings-layout">
+    <nav class="settings-nav" aria-label="Розділи налаштувань">
+      <span>Розділи</span>
+      <button class="settings-nav__item" [class.settings-nav__item--active]="activeSection() === 'reasons'" type="button" (click)="selectSection('reasons')">
+        <ui-icon name="settings" />
+        Причини відсутності
+      </button>
+      <button class="settings-nav__item" [class.settings-nav__item--active]="activeSection() === 'calendar'" type="button" (click)="selectSection('calendar')">
+        <ui-icon name="calendar" />
+        Календар навчальних днів
+      </button>
+    </nav>
+
+    <main class="settings-content">
+      @if (activeSection() === 'reasons') {
+      <header class="settings-content__header">
+        <div>
+          <h2>Причини відсутності</h2>
+          <p>Використовуються для деталізації пропусків учнів.</p>
+        </div>
+        <button class="primary-button" type="button" (click)="openCreate()">Додати причину</button>
+      </header>
+
+      <article class="reasons-card">
+        <ui-toolbar>
+          <ui-input
+            class="reason-search"
+            icon="search"
+            placeholder="Пошук за назвою або кодом..."
+            [value]="searchTerm()"
+            (valueChange)="searchTerm.set($event)"
+          />
+          <ui-select
+            class="reason-filter"
+            ariaLabel="Статус причини"
+            [options]="filterOptions"
+            [value]="selectedFilter()"
+            (valueChange)="updateFilter($event)"
+          />
+        </ui-toolbar>
+
+        @if (visibleReasons().length) {
+          <div class="reasons-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Код</th>
+                  <th>Назва</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (reason of visibleReasons(); track reason.id) {
+                  <tr>
+                    <td><code>{{ reason.code }}</code></td>
+                    <td><strong>{{ reason.name }}</strong></td>
+                    <td>
+                      <button
+                        class="reason-switch"
+                        [class.reason-switch--active]="reason.isActive"
+                        type="button"
+                        [attr.aria-label]="reason.isActive ? 'Деактивувати причину' : 'Активувати причину'"
+                        (click)="toggleReason(reason)"
+                      >
+                        <span></span>
+                        {{ reason.isActive ? 'Активна' : 'Неактивна' }}
+                      </button>
+                    </td>
+                    <td>
+                      <button class="reason-edit" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEdit(reason)">
+                        <ui-icon name="pencil" />
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <ui-empty-state title="Причин не знайдено" description="Змініть пошук або додайте нову причину." icon="settings" />
+        }
+      </article>
+      } @else {
+        <app-academic-calendar-settings />
+      }
+    </main>
+  </div>
+
+  <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
+    <div class="reason-editor">
+      <ui-input label="Код" placeholder="Наприклад, FAM" [value]="draftCode()" (valueChange)="draftCode.set($event)" />
+      <ui-input label="Назва" placeholder="Назва причини" [value]="draftName()" (valueChange)="draftName.set($event)" />
+      <label class="reason-editor__active">
+        <input type="checkbox" [ngModel]="draftIsActive()" (ngModelChange)="draftIsActive.set($event)" />
+        <span>Причина активна</span>
+      </label>
+      <div class="reason-editor__actions">
+        <button class="secondary-button" type="button" (click)="closePanel()">Скасувати</button>
+        <button class="primary-button" type="button" [disabled]="!draftCode().trim() || !draftName().trim()" (click)="saveReason()">Зберегти</button>
+      </div>
+    </div>
+  </ui-side-panel>
+</section>

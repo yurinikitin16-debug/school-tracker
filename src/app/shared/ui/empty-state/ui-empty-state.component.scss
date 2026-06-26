@@ -1,0 +1,37 @@
+:host {
+  display: block;
+}
+
+.empty-state {
+  display: grid;
+  gap: 10px;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  padding: 28px;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: var(--color-primary);
+  font-size: 22px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+p {
+  max-width: 420px;
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.55;
+}

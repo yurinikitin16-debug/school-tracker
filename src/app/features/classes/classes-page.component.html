@@ -1,0 +1,162 @@
+<section class="classes-page">
+  <ui-page-header eyebrow="Довідники" title="Класи" />
+
+  <ui-toolbar>
+    <ui-select
+      class="classes-year"
+      ariaLabel="Навчальний рік"
+      [options]="yearOptions()"
+      [value]="selectedYear()"
+      (valueChange)="updateYear($event)"
+    />
+    <ui-input
+      class="classes-search"
+      icon="search"
+      placeholder="Пошук за назвою класу..."
+      [value]="searchTerm()"
+      (valueChange)="searchTerm.set($event)"
+    />
+    <button class="primary-button classes-add" type="button" (click)="openCreate()">Додати клас</button>
+  </ui-toolbar>
+
+  <article class="classes-card">
+    @if (rows().length) {
+      <div class="classes-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Клас</th>
+              <th>Учнів</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.schoolClass.id) {
+              <tr>
+                <td><strong>{{ row.schoolClass.name }}</strong></td>
+                <td>
+                  <button
+                    class="class-students-count"
+                    type="button"
+                    [attr.aria-label]="'Показати учнів класу ' + row.schoolClass.name"
+                    (click)="openStudents(row.schoolClass)"
+                  >
+                    {{ row.studentsCount }}
+                  </button>
+                </td>
+                <td>
+                  <button class="class-edit" type="button" title="Редагувати клас" aria-label="Редагувати клас" (click)="openEdit(row.schoolClass)">
+                    <ui-icon name="pencil" />
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <ui-empty-state title="Класів не знайдено" description="Змініть пошук або фільтр стану." icon="database" />
+    }
+  </article>
+
+  <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
+    @if (editorMode() === 'class') {
+    <div class="class-editor">
+      <ui-input label="Назва класу" [value]="draftName()" (valueChange)="draftName.set($event)" />
+
+      @if (isCreatingClass()) {
+        <label class="class-editor__year-toggle">
+          <input
+            type="checkbox"
+            [ngModel]="isAcademicYearOverrideEnabled()"
+            (ngModelChange)="isAcademicYearOverrideEnabled.set($event)"
+          />
+          <span>Змінити навчальний рік</span>
+        </label>
+        <ui-select
+          label="Навчальний рік"
+          [options]="yearOptions()"
+          [value]="draftAcademicYear()"
+          [disabled]="!isAcademicYearOverrideEnabled()"
+          (valueChange)="draftAcademicYear.set($event)"
+        />
+      }
+
+      <button class="primary-button" type="button" [disabled]="!draftName().trim()" (click)="saveClass()">
+        {{ isCreatingClass() ? 'Додати клас' : 'Зберегти назву' }}
+      </button>
+
+      @if (!isCreatingClass()) {
+      <section class="class-editor__action">
+        <div>
+          <strong>Наступний навчальний рік</strong>
+          <span>Назва класу стане {{ selectedClass()?.name }} -> наступний номер.</span>
+        </div>
+        <button class="secondary-button" type="button" (click)="promoteClass()">Перевести клас</button>
+      </section>
+
+      <section class="class-editor__action">
+        <div>
+          <strong>Учні класу</strong>
+          <span>Додайте нового учня одразу до цього класу.</span>
+        </div>
+        <button class="secondary-button" type="button" (click)="openStudentCreate()">Додати учня</button>
+      </section>
+
+      <section class="class-editor__action class-editor__action--danger">
+        <div>
+          <strong>Архівувати клас</strong>
+          <span>Клас зникне з активного навчального року, але дані залишаться.</span>
+        </div>
+        <button class="danger-button" type="button" (click)="archiveClass()">Архівувати</button>
+      </section>
+      }
+    </div>
+    } @else {
+      <div class="class-student-editor">
+        <ui-input label="Прізвище" [value]="draftStudentLastName()" (valueChange)="draftStudentLastName.set($event)" />
+        <ui-input label="Ім'я" [value]="draftStudentFirstName()" (valueChange)="draftStudentFirstName.set($event)" />
+        <ui-input label="По батькові" [value]="draftStudentMiddleName()" (valueChange)="draftStudentMiddleName.set($event)" />
+        <ui-input label="Дата народження" type="date" [value]="draftStudentBirthDate()" (valueChange)="draftStudentBirthDate.set($event)" />
+        <label class="class-student-editor__class">
+          <span>Клас</span>
+          <strong>{{ selectedClass()?.name }}</strong>
+        </label>
+        <div class="class-student-editor__actions">
+          <button class="secondary-button" type="button" (click)="closeStudentCreate()">Назад</button>
+          <button
+            class="primary-button"
+            type="button"
+            [disabled]="!draftStudentLastName().trim() || !draftStudentFirstName().trim() || !draftStudentBirthDate()"
+            (click)="saveStudent()"
+          >
+            Додати учня
+          </button>
+        </div>
+      </div>
+    }
+  </ui-side-panel>
+
+  <ui-side-panel [open]="isStudentsPanelOpen()" [title]="studentsPanelTitle()" (closed)="closeStudentsPanel()">
+    <div class="class-students-panel">
+      <ui-input
+        icon="search"
+        placeholder="Пошук учня..."
+        [value]="studentSearchTerm()"
+        (valueChange)="studentSearchTerm.set($event)"
+      />
+
+      @if (classStudents().length) {
+        <ul class="class-students-list">
+          @for (student of classStudents(); track student.id) {
+            <li>
+              <strong>{{ student.lastName }} {{ student.firstName }}</strong>
+            </li>
+          }
+        </ul>
+      } @else {
+        <ui-empty-state title="У класі немає учнів" description="Учнів можна буде додати або перевести сюди з довідника учнів." icon="users" />
+      }
+    </div>
+  </ui-side-panel>
+</section>

@@ -1,0 +1,63 @@
+<section class="calendar-settings">
+  <header class="calendar-settings__header">
+    <div>
+      <h2>Календар навчальних днів</h2>
+      <p>Будні навчальні за замовчуванням. Натисніть на дату, щоб додати виняток.</p>
+    </div>
+    <ui-select
+      class="calendar-settings__year"
+      ariaLabel="Навчальний рік"
+      [options]="yearOptions"
+      [value]="selectedYear()"
+      (valueChange)="updateYear($event)"
+    />
+  </header>
+
+  <article class="calendar-card">
+    <ui-toolbar class="calendar-toolbar">
+      <button class="calendar-arrow" type="button" aria-label="Попередній місяць" (click)="changeMonth(-1)"><ui-icon name="chevron-left" /></button>
+      <strong>{{ monthLabel() }}</strong>
+      <button class="calendar-arrow" type="button" aria-label="Наступний місяць" (click)="changeMonth(1)"><ui-icon name="chevron-right" /></button>
+    </ui-toolbar>
+
+    <div class="calendar-weekdays" aria-hidden="true">
+      <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Нд</span>
+    </div>
+    <div class="calendar-grid">
+      @for (day of days(); track day?.date ?? $index) {
+        @if (day) {
+          <button
+            class="calendar-day"
+            [class.calendar-day--off]="!day.isSchoolDay"
+            [class.calendar-day--exception]="!!day.exception"
+            type="button"
+            [attr.aria-label]="day.date"
+            (click)="openDay(day)"
+          >
+            <span>{{ day.day }}</span>
+            @if (day.exception?.note) {
+              <small>{{ day.exception?.note }}</small>
+            }
+          </button>
+        } @else {
+          <span class="calendar-day calendar-day--empty"></span>
+        }
+      }
+    </div>
+    <div class="calendar-legend">
+      <span><i class="calendar-legend__school"></i>Навчальний день</span>
+      <span><i class="calendar-legend__off"></i>Вихідний або канікули</span>
+    </div>
+  </article>
+
+  <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
+    <div class="calendar-editor">
+      <ui-select label="Статус дня" [options]="statusOptions" [value]="draftStatus()" (valueChange)="draftStatus.set($any($event))" />
+      <ui-input label="Примітка" placeholder="Наприклад, канікули" [value]="draftNote()" (valueChange)="draftNote.set($event)" />
+      <div class="calendar-editor__actions">
+        <button class="secondary-button" type="button" (click)="closePanel()">Скасувати</button>
+        <button class="primary-button" type="button" (click)="saveDay()">Зберегти</button>
+      </div>
+    </div>
+  </ui-side-panel>
+</section>

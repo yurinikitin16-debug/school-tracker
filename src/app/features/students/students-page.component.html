@@ -1,0 +1,82 @@
+<section class="students-page">
+  <ui-page-header [eyebrow]="'Довідники · ' + academicYear.currentYear()" title="Учні" />
+
+  <ui-toolbar>
+    <ui-select
+      class="students-class"
+      ariaLabel="Клас"
+      [options]="classOptions()"
+      [value]="selectedClass()"
+      (valueChange)="updateClass($event)"
+    />
+    <ui-input
+      class="students-search"
+      icon="search"
+      placeholder="Пошук за ім'ям..."
+      [value]="searchTerm()"
+      (valueChange)="searchTerm.set($event)"
+    />
+    <button class="primary-button students-add" type="button" (click)="openCreate()">Додати учня</button>
+  </ui-toolbar>
+
+  <article class="students-card">
+    @if (!classOptions().length) {
+      <ui-empty-state title="Немає класів на поточний рік" description="Створіть або переведіть клас у поточний навчальний рік." icon="database" />
+    } @else if (rows().length) {
+      <div class="students-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Прізвище</th>
+              <th>Ім'я</th>
+              <th>По батькові</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (student of rows(); track student.id) {
+              <tr>
+                <td><strong>{{ student.lastName }}</strong></td>
+                <td>{{ student.firstName }}</td>
+                <td>{{ student.middleName || '—' }}</td>
+                <td>
+                  <button class="student-edit" type="button" title="Редагувати учня" aria-label="Редагувати учня" (click)="openEdit(student)">
+                    <ui-icon name="pencil" />
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <ui-empty-state title="Учнів не знайдено" description="Спробуйте змінити пошуковий запит." icon="users" />
+    }
+  </article>
+
+  <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
+    <div class="student-editor">
+      <ui-input label="Прізвище" [value]="draftLastName()" (valueChange)="draftLastName.set($event)" />
+      <ui-input label="Ім'я" [value]="draftFirstName()" (valueChange)="draftFirstName.set($event)" />
+      <ui-input label="По батькові" [value]="draftMiddleName()" (valueChange)="draftMiddleName.set($event)" />
+      <ui-input label="Дата народження" type="date" [value]="draftBirthDate()" (valueChange)="draftBirthDate.set($event)" />
+      <ui-select
+        label="Клас"
+        [options]="classOptions()"
+        [value]="draftClassName()"
+        (valueChange)="draftClassName.set($event)"
+      />
+      <div class="student-editor__actions">
+        <button class="secondary-button" type="button" (click)="closePanel()">Скасувати</button>
+        <button
+          class="primary-button"
+          type="button"
+          [disabled]="!draftLastName().trim() || !draftFirstName().trim() || !draftBirthDate() || !draftClassName()"
+          (click)="saveStudent()"
+        >
+          Зберегти
+        </button>
+      </div>
+    </div>
+  </ui-side-panel>
+</section>

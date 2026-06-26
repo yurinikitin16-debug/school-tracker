@@ -1,1 +1,271 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --color-app-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-text: #172033;
+  --color-muted: #70809f;
+  --color-muted-strong: #46566f;
+  --color-border: #e2e8f5;
+  --color-border-soft: #edf1f8;
+  --color-primary: #4438df;
+  --color-primary-strong: #3328c9;
+  --radius-card: 8px;
+  --radius-control: 8px;
+  --shadow-card: 0 14px 32px rgba(26, 42, 76, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-app-bg);
+  color: var(--color-text);
+  font-family:
+    Inter,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+table tbody tr > td,
+table tbody tr > th {
+  transition: background-color 140ms ease;
+}
+
+table tbody tr:hover > td,
+table tbody tr:hover > th {
+  background: #f8f7ff;
+}
+
+.cell-editor {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% - 4px);
+  left: 50%;
+  display: grid;
+  width: 218px;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: 0 16px 32px rgba(26, 42, 76, 0.16);
+  transform: translateX(-50%);
+}
+
+.cell-editor select,
+.cell-editor input {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.cell-editor__done {
+  min-height: 32px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cell--changed {
+  background: #f1efff;
+}
+
+table tbody tr:hover > .cell--changed {
+  background: #eeebff;
+}
+
+.attendance-page .date-controls,
+.attendance-page .student-cell {
+  display: flex;
+  align-items: center;
+}
+
+.attendance-page .date-controls {
+  gap: 6px;
+}
+
+.attendance-page .icon-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-muted-strong);
+  cursor: pointer;
+}
+
+.attendance-page .icon-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.attendance-page .icon-button ui-icon {
+  font-size: 16px;
+}
+
+.attendance-page .today-button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-muted-strong);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attendance-page .table-wrap {
+  max-height: 620px;
+}
+
+.attendance-page thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.attendance-page tbody td:first-child,
+.attendance-page tfoot th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+}
+
+.attendance-page thead th:first-child {
+  left: 0;
+  z-index: 3;
+}
+
+.attendance-page .student-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+.attendance-page .student-cell__name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.attendance-page .student-cell__name span {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-absence {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.day-absence input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.attendance-card__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.reports-stats .stat-card__label {
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .attendance-page .date-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .attendance-page .today-button {
+    display: none;
+  }
+
+  .attendance-card__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .attendance-page th:first-child,
+  .attendance-page td:first-child {
+    min-width: 150px;
+  }
+
+  .attendance-page .student-name--desktop {
+    display: none;
+  }
+
+  .attendance-page .student-name--mobile {
+    display: inline;
+  }
+}
+
+@media (min-width: 1200px) {
+  .classes-page .field select,
+  .classes-page .field input {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .classes-page .field__icon {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 761px) {
+  .attendance-page .student-name--mobile {
+    display: none;
+  }
+}

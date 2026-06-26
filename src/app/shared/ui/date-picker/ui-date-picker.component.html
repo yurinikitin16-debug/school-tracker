@@ -1,0 +1,39 @@
+<div class="date-picker">
+  <button class="date-button" type="button" (click)="toggle()">{{ label }}</button>
+
+  @if (isOpen()) {
+    <div class="date-popover" role="dialog" aria-label="Вибір дати">
+      <div class="calendar-header">
+        <button type="button" aria-label="Попередній місяць" (click)="previousMonth()">‹</button>
+        <strong>{{ calendarMonthLabel() }}</strong>
+        <button type="button" aria-label="Наступний місяць" (click)="nextMonth()">›</button>
+      </div>
+
+      <div class="calendar-weekdays" aria-hidden="true">
+        <span>Пн</span>
+        <span>Вт</span>
+        <span>Ср</span>
+        <span>Чт</span>
+        <span>Пт</span>
+        <span>Сб</span>
+        <span>Нд</span>
+      </div>
+
+      <div class="calendar-grid">
+        @for (day of calendarDays(); track day.date.toISOString()) {
+          <button
+            class="calendar-day"
+            [class.calendar-day--muted]="!day.isCurrentMonth"
+            [class.calendar-day--selected]="day.isSelected"
+            [class.calendar-day--today]="day.isToday"
+            [disabled]="day.isWeekend"
+            type="button"
+            (click)="selectDate(day)"
+          >
+            {{ day.day }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

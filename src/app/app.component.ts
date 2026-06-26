@@ -1,12 +1,11 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { AppShellComponent } from './layout/app-shell/app-shell.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
+  imports: [AppShellComponent],
+  template: '<app-shell />',
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = 'school-tracker';
 }

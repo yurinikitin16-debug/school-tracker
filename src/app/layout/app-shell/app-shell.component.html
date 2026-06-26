@@ -1,0 +1,80 @@
+<div class="shell">
+  <header class="mobile-header">
+    <button class="mobile-menu-button" type="button" aria-label="Відкрити меню" (click)="openMobileSidebar()">
+      <ui-icon name="menu" />
+    </button>
+    <a class="mobile-brand" routerLink="/attendance" aria-label="SchoolTrack">
+      <span class="brand__mark">S</span>
+      <span>SchoolTrack</span>
+    </a>
+  </header>
+
+  @if (isMobileSidebarOpen()) {
+    <button class="sidebar-backdrop" type="button" aria-label="Закрити меню" (click)="closeMobileSidebar()"></button>
+  }
+
+  <aside class="sidebar" [class.sidebar--open]="isMobileSidebarOpen()" aria-label="Основна навігація">
+    <button class="sidebar__close" type="button" aria-label="Закрити меню" (click)="closeMobileSidebar()">
+      <ui-icon name="x" />
+    </button>
+
+    <a class="brand" routerLink="/attendance" aria-label="SchoolTrack">
+      <span class="brand__mark">S</span>
+      <span>
+        <strong>SchoolTrack</strong>
+        <small>Відвідування учнів</small>
+      </span>
+    </a>
+
+    <nav class="nav" aria-label="Розділи">
+      @for (item of navItems; track item.route) {
+        <a
+          class="nav__link"
+          [routerLink]="item.route"
+          routerLinkActive="nav__link--active"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          <ui-icon class="nav__icon" [name]="item.icon" />
+          <span>{{ item.label }}</span>
+        </a>
+      }
+
+      <button
+        class="nav__link nav__link--button"
+        [class.nav__link--active]="isDirectoriesActive()"
+        type="button"
+        (click)="toggleDirectories()"
+      >
+        <ui-icon class="nav__icon" name="database" />
+        <span>Довідники</span>
+        <ui-icon class="nav__chevron" [class.nav__chevron--open]="isDirectoriesOpen()" name="chevron-down" />
+      </button>
+
+      @if (isDirectoriesOpen()) {
+        <div class="nav__group">
+          @for (item of directoryItems; track item.route) {
+            <a
+              class="nav__link nav__link--child"
+              [routerLink]="item.route"
+              routerLinkActive="nav__link--active"
+              [routerLinkActiveOptions]="{ exact: true }"
+            >
+              <ui-icon class="nav__icon" [name]="item.icon" />
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="sidebar__academic-year">
+      <span>Навчальний рік</span>
+      <strong>{{ academicYear.currentYear() }}</strong>
+    </div>
+
+  </aside>
+
+  <main class="workspace">
+    <router-outlet />
+  </main>
+</div>

@@ -1,0 +1,54 @@
+.backdrop {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  border: 0;
+  background: rgba(21, 29, 45, 0.34);
+  cursor: pointer;
+}
+
+.panel {
+  position: fixed;
+  z-index: 80;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(480px, 100vw);
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: -24px 0 48px rgba(24, 34, 53, 0.16);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 66px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 18px;
+}
+
+button:not(.backdrop) {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.panel__body {
+  height: calc(100% - 66px);
+  padding: 18px;
+  overflow: auto;
+}
