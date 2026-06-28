@@ -1,0 +1,232 @@
+<section class="reports-page">
+  <ui-page-header eyebrow="Огляд неявок" title="Звіти" />
+
+  <ui-toolbar>
+    <ui-select
+      class="report-control report-control--class"
+      ariaLabel="Клас"
+      [options]="classOptions()"
+      [value]="selectedClass()"
+      (valueChange)="updateClass($event)"
+    />
+    <ui-select
+      class="report-control"
+      ariaLabel="Період"
+      [options]="periodOptions"
+      [value]="selectedPeriod()"
+      (valueChange)="updatePeriod($event)"
+    />
+  </ui-toolbar>
+
+  <nav class="report-tabs" aria-label="Види звіту">
+    <button type="button" [class.report-tabs__button--active]="selectedView() === 'overview'" (click)="updateView('overview')">
+      Огляд
+    </button>
+    <button type="button" [class.report-tabs__button--active]="selectedView() === 'students'" (click)="updateView('students')">
+      По учнях
+    </button>
+    <button type="button" [class.report-tabs__button--active]="selectedView() === 'classes'" (click)="updateView('classes')">
+      По класах
+    </button>
+  </nav>
+
+  @if (selectedView() === 'overview') {
+    <div class="reports-stats">
+      <ui-stat-card label="Всього учнів" [value]="summary().totalStudents" icon="users" tone="primary" [centered]="true" />
+      <ui-stat-card label="Учнів з неявками" [value]="summary().studentsWithAbsences" icon="calendar" tone="warning" [centered]="true" />
+      <ui-stat-card label="Всього неявок" [value]="summary().totalAbsences" icon="x" tone="danger" [centered]="true" />
+    </div>
+
+    <article class="report-table-card">
+      <header class="report-table-card__header">
+        <div>
+          <h2>Динаміка по днях</h2>
+          <p>Кількість учнів з неявкою за вибраний період</p>
+        </div>
+      </header>
+
+      @if (visibleDays().length) {
+        <div class="report-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Учнів з неявкою</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (day of visibleDays(); track day.date) {
+                <tr>
+                  <td><strong>{{ formatDate(day.date) }}</strong></td>
+                  <td>
+                    <button
+                      class="report-value report-value--warning"
+                      type="button"
+                      [disabled]="!absentStudentIds(day).length"
+                      [attr.aria-label]="'Показати учнів з неявкою ' + formatDate(day.date)"
+                      (click)="openStudentList(day)"
+                    >
+                      {{ absentStudentIds(day).length }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <ui-empty-state title="За цей період даних немає" description="Оберіть інший клас або період." icon="chart" />
+      }
+
+    </article>
+  } @else if (selectedView() === 'students') {
+    <ui-toolbar class="student-report-toolbar">
+      <ui-select
+        class="report-control"
+        ariaLabel="Сортування"
+        [options]="studentSortOptions"
+        [value]="selectedStudentSort()"
+        (valueChange)="updateStudentSort($event)"
+      />
+    </ui-toolbar>
+
+    <article class="report-table-card">
+      <header class="report-table-card__header">
+        <div>
+          <h2>Неявки по учнях</h2>
+          <p>Показники за вибраний період</p>
+        </div>
+      </header>
+
+      <div class="report-table-wrap">
+        <table class="student-report-table">
+          <thead>
+            <tr>
+              <th>Учень</th>
+              @if (selectedClass() === 'all') {
+                <th>Клас</th>
+              }
+              <th>Днів неявки</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of studentRows(); track row.student.id) {
+              <tr>
+                <td><strong>{{ row.student.lastName }} {{ row.student.firstName }}</strong></td>
+                @if (selectedClass() === 'all') {
+                  <td>{{ row.student.className }}</td>
+                }
+                <td>
+                  <strong [class.report-number--danger]="row.absenceDays > 2">{{ row.absenceDays }}</strong>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+    </article>
+  } @else {
+    <article class="report-table-card">
+      <header class="report-table-card__header">
+        <div>
+          <h2>Неявки по класах</h2>
+          <p>Порівняння класів за вибраний період</p>
+        </div>
+      </header>
+
+      <div class="report-table-wrap">
+        <table class="class-report-table">
+          <thead>
+            <tr>
+              <th>Клас</th>
+              <th>Учнів</th>
+              <th>Учнів з неявками</th>
+              <th>Всього неявок</th>
+              <th>% учнів з неявками</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of classRows(); track row.className) {
+              <tr>
+                <td><strong>{{ row.className }}</strong></td>
+                <td>{{ row.totalStudents }}</td>
+                <td>
+                  <button
+                    class="report-value report-value--warning"
+                    type="button"
+                    [disabled]="!row.studentsWithAbsences"
+                    [attr.aria-label]="'Показати учнів з неявками у класі ' + row.className"
+                    (click)="openClassReport(row)"
+                  >
+                    {{ row.studentsWithAbsences }}
+                  </button>
+                </td>
+                <td><strong [class.report-number--danger]="row.totalAbsences > 4">{{ row.totalAbsences }}</strong></td>
+                <td>{{ row.absencePercent }}%</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+    </article>
+  }
+
+  <section class="report-export-panel" aria-label="Експорт звіту">
+    <div>
+      <strong>Експорт повного звіту</strong>
+      <span>Excel файл міститиме огляд, учнів і класи за вибраними фільтрами.</span>
+    </div>
+    <button class="report-export" type="button" (click)="exportReport()">
+      <ui-icon name="download" />
+      Експорт в Excel
+    </button>
+  </section>
+
+  @if (selectedStudentList(); as selection) {
+    <button class="absent-modal__backdrop" type="button" aria-label="Закрити" (click)="closeStudentList()"></button>
+    <section class="absent-modal" role="dialog" aria-modal="true" aria-label="Учні з неявкою">
+      <header>
+        <div>
+          <h2>Учні з неявкою</h2>
+          <p>{{ formatDate(selection.day.date) }}</p>
+        </div>
+        <button class="absent-modal__close" type="button" aria-label="Закрити" (click)="closeStudentList()">
+          <ui-icon name="x" />
+        </button>
+      </header>
+      <ul>
+        @for (student of selectedStudents(); track student.id) {
+          <li>
+            <strong>{{ student.lastName }} {{ student.firstName }}</strong>
+            <span>{{ student.className }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (selectedClassReport(); as row) {
+    <button class="absent-modal__backdrop" type="button" aria-label="Закрити" (click)="closeClassReport()"></button>
+    <section class="absent-modal" role="dialog" aria-modal="true" aria-label="Учні класу з неявками">
+      <header>
+        <div>
+          <h2>Учні з неявками</h2>
+          <p>{{ row.className }} · {{ row.totalAbsences }} неявок</p>
+        </div>
+        <button class="absent-modal__close" type="button" aria-label="Закрити" (click)="closeClassReport()">
+          <ui-icon name="x" />
+        </button>
+      </header>
+      <ul>
+        @for (student of selectedClassReportStudents(); track student.id) {
+          <li>
+            <strong>{{ student.lastName }} {{ student.firstName }}</strong>
+            <span>{{ student.className }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</section>

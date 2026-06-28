@@ -100,6 +100,12 @@
   outline: none;
 }
 
+.calendar-day--selected-week,
+.calendar-day--hover-week {
+  background: #eef2ff;
+  color: var(--color-primary);
+}
+
 .calendar-day--muted {
   color: #a5b0c3;
 }
@@ -119,11 +125,24 @@
   color: #ffffff;
 }
 
+.calendar-day--disabled,
 .calendar-day:disabled {
   background: #f1f5f9;
   color: #b7c0d1;
   cursor: not-allowed;
   text-decoration: line-through;
+}
+
+.calendar-day--disabled:hover,
+.calendar-day--disabled:focus-visible {
+  background: #f1f5f9;
+  color: #b7c0d1;
+}
+
+.calendar-day--selected-week:disabled,
+.calendar-day--hover-week:disabled {
+  background: #e8edff;
+  color: #7c88a2;
 }
 
 @media (max-width: 760px) {

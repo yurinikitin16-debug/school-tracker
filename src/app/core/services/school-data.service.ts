@@ -1,10 +1,14 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { MOCK_ACADEMIC_CALENDAR_EXCEPTIONS, MOCK_ATTENDANCE, MOCK_ATTENDANCE_REASONS, MOCK_ATTENDANCE_REPORT_DAYS, MOCK_ATTENDANCE_REPORT_LESSONS, MOCK_CLASSES, MOCK_LESSONS, MOCK_SCHEDULE_LESSONS, MOCK_STUDENTS, MOCK_SUBJECTS, MOCK_TEACHERS } from '../data/mock-school-data';
-import { AcademicCalendarException, AttendanceReason, AttendanceRecord, AttendanceReportDay, AttendanceReportLesson, Lesson, ScheduleLesson, SchoolClass, Student, Subject, Teacher } from '../models/school.models';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { MOCK_ACADEMIC_CALENDAR_EXCEPTIONS, MOCK_ATTENDANCE, MOCK_ATTENDANCE_REASONS, MOCK_ATTENDANCE_REPORT_DAYS, MOCK_ATTENDANCE_REPORT_LESSONS, MOCK_CLASSES, MOCK_LESSONS, MOCK_STUDENT_MEALS, MOCK_STUDENTS } from '../data/mock-school-data';
+import { AcademicCalendarException, AttendanceReason, AttendanceRecord, AttendanceReportDay, AttendanceReportLesson, Lesson, SchoolClass, Student, StudentMeal } from '../models/school.models';
 
 @Injectable({ providedIn: 'root' })
 export class SchoolDataService {
+  private readonly academicCalendarExceptionsSubject = new BehaviorSubject<AcademicCalendarException[]>(
+    MOCK_ACADEMIC_CALENDAR_EXCEPTIONS.map((exception) => ({ ...exception })),
+  );
+
   getStudents(): Observable<Student[]> {
     return of(MOCK_STUDENTS);
   }
@@ -13,28 +17,24 @@ export class SchoolDataService {
     return of(MOCK_CLASSES);
   }
 
-  getTeachers(): Observable<Teacher[]> {
-    return of(MOCK_TEACHERS);
-  }
-
-  getSubjects(): Observable<Subject[]> {
-    return of(MOCK_SUBJECTS);
-  }
-
   getAcademicCalendarExceptions(): Observable<AcademicCalendarException[]> {
-    return of(MOCK_ACADEMIC_CALENDAR_EXCEPTIONS);
+    return this.academicCalendarExceptionsSubject.asObservable();
+  }
+
+  updateAcademicCalendarExceptions(exceptions: AcademicCalendarException[]): void {
+    this.academicCalendarExceptionsSubject.next(exceptions.map((exception) => ({ ...exception })));
   }
 
   getLessons(): Observable<Lesson[]> {
     return of(MOCK_LESSONS);
   }
 
-  getScheduleLessons(): Observable<ScheduleLesson[]> {
-    return of(MOCK_SCHEDULE_LESSONS);
-  }
-
   getAttendance(): Observable<AttendanceRecord[]> {
     return of(MOCK_ATTENDANCE);
+  }
+
+  getStudentMeals(): Observable<StudentMeal[]> {
+    return of(MOCK_STUDENT_MEALS);
   }
 
   getAttendanceReportDays(): Observable<AttendanceReportDay[]> {

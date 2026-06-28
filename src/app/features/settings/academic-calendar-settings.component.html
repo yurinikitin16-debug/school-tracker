@@ -30,9 +30,11 @@
             class="calendar-day"
             [class.calendar-day--off]="!day.isSchoolDay"
             [class.calendar-day--exception]="!!day.exception"
+            [class.calendar-day--selected]="isSelected(day.date)"
             type="button"
             [attr.aria-label]="day.date"
-            (click)="openDay(day)"
+            (mousedown)="startSelection(day, $event)"
+            (mouseenter)="extendSelection(day)"
           >
             <span>{{ day.day }}</span>
             @if (day.exception?.note) {
@@ -52,6 +54,14 @@
 
   <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
     <div class="calendar-editor">
+      <div class="calendar-editor__selected-days">
+        <strong>Вибрані дні</strong>
+        <div>
+          @for (date of selectedDateLabels(); track date) {
+            <span>{{ date }}</span>
+          }
+        </div>
+      </div>
       <ui-select label="Статус дня" [options]="statusOptions" [value]="draftStatus()" (valueChange)="draftStatus.set($any($event))" />
       <ui-input label="Примітка" placeholder="Наприклад, канікули" [value]="draftNote()" (valueChange)="draftNote.set($event)" />
       <div class="calendar-editor__actions">

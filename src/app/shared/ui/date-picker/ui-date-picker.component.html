@@ -25,9 +25,14 @@
             class="calendar-day"
             [class.calendar-day--muted]="!day.isCurrentMonth"
             [class.calendar-day--selected]="day.isSelected"
+            [class.calendar-day--selected-week]="selectionMode === 'week' && day.isInSelectedWeek"
+            [class.calendar-day--hover-week]="isWeekHovered(day)"
             [class.calendar-day--today]="day.isToday"
-            [disabled]="day.isWeekend"
+            [class.calendar-day--disabled]="day.isDisabled"
+            [disabled]="day.isDisabled"
             type="button"
+            (mouseenter)="hoverDay(day)"
+            (mouseleave)="clearHoveredWeek()"
             (click)="selectDate(day)"
           >
             {{ day.day }}

@@ -31,11 +31,8 @@ export class AppShellComponent {
   ];
 
   readonly directoryItems: NavItem[] = [
-    { label: 'Розклад', route: '/schedule', icon: 'calendar' },
     { label: 'Учні', route: '/students', icon: 'users' },
     { label: 'Класи', route: '/classes', icon: 'database' },
-    { label: 'Предмети', route: '/subjects', icon: 'graduation-cap' },
-    { label: 'Вчителі', route: '/teachers', icon: 'users' },
   ];
 
   readonly isDirectoriesActive = computed(() =>

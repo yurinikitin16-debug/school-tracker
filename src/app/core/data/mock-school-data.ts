@@ -1,4 +1,4 @@
-import { AcademicCalendarException, AttendanceReason, AttendanceRecord, AttendanceReportDay, AttendanceReportLesson, Lesson, ScheduleLesson, SchoolClass, Student, Subject, Teacher } from '../models/school.models';
+import { AcademicCalendarException, AttendanceReason, AttendanceRecord, AttendanceReportDay, AttendanceReportLesson, Lesson, SchoolClass, Student, StudentMeal } from '../models/school.models';
 
 export const MOCK_STUDENTS: Student[] = [
   { id: 1, firstName: 'Андрій', lastName: 'Іваненко', middleName: 'Олександрович', className: '8-А', birthDate: '2010-04-15', isActive: true },
@@ -19,24 +19,6 @@ export const MOCK_CLASSES: SchoolClass[] = [
   { id: 4, name: '9-А', academicYear: '2024/2025', isActive: false },
 ];
 
-export const MOCK_TEACHERS: Teacher[] = [
-  { id: 1, fullName: 'Петренко О.С.', subject: 'Математика', subjectIds: [1, 2], isClassTeacher: true },
-  { id: 2, fullName: 'Іваненко Н.М.', subject: 'Українська мова', subjectIds: [2] },
-  { id: 3, fullName: 'Коваленко І.В.', subject: 'Англійська мова', subjectIds: [3, 6] },
-  { id: 4, fullName: 'Мельник В.П.', subject: 'Історія', subjectIds: [4], isClassTeacher: true },
-  { id: 5, fullName: 'Бондар С.І.', subject: 'Фізика', subjectIds: [5, 1] },
-  { id: 6, fullName: 'Грищенко О.В.', subject: 'Інформатика', subjectIds: [6] },
-];
-
-export const MOCK_SUBJECTS: Subject[] = [
-  { id: 1, name: 'Математика', isActive: true },
-  { id: 2, name: 'Українська мова', isActive: true },
-  { id: 3, name: 'Англійська мова', isActive: true },
-  { id: 4, name: 'Історія', isActive: true },
-  { id: 5, name: 'Фізика', isActive: true },
-  { id: 6, name: 'Інформатика', isActive: true },
-];
-
 export const MOCK_ACADEMIC_CALENDAR_EXCEPTIONS: AcademicCalendarException[] = [
   { id: 1, academicYear: '2025/2026', date: '2026-06-29', isSchoolDay: false, note: 'Канікули' },
 ];
@@ -53,29 +35,6 @@ export const MOCK_LESSONS: Lesson[] = [
   { id: 203, order: 3, subject: 'Історія', className: '8-Б', teacherId: 4, startsAt: '10:30', endsAt: '11:15' },
 ];
 
-export const MOCK_SCHEDULE_LESSONS: ScheduleLesson[] = [
-  { id: 1, className: '8-А', weekday: 1, lessonNumber: 1, subject: 'Математика', teacherId: 1 },
-  { id: 2, className: '8-А', weekday: 1, lessonNumber: 2, subject: 'Українська мова', teacherId: 2 },
-  { id: 3, className: '8-А', weekday: 1, lessonNumber: 3, subject: 'Англійська мова', teacherId: 3 },
-  { id: 4, className: '8-А', weekday: 1, lessonNumber: 4, subject: 'Історія', teacherId: 4 },
-  { id: 5, className: '8-А', weekday: 2, lessonNumber: 1, subject: 'Фізика', teacherId: 5 },
-  { id: 6, className: '8-А', weekday: 2, lessonNumber: 2, subject: 'Математика', teacherId: 1 },
-  { id: 7, className: '8-А', weekday: 2, lessonNumber: 3, subject: 'Українська мова', teacherId: 2 },
-  { id: 8, className: '8-А', weekday: 2, lessonNumber: 4, subject: 'Інформатика', teacherId: 6 },
-  { id: 9, className: '8-А', weekday: 3, lessonNumber: 1, subject: 'Англійська мова', teacherId: 3 },
-  { id: 10, className: '8-А', weekday: 3, lessonNumber: 2, subject: 'Математика', teacherId: 1 },
-  { id: 11, className: '8-А', weekday: 3, lessonNumber: 3, subject: 'Історія', teacherId: 4 },
-  { id: 12, className: '8-А', weekday: 4, lessonNumber: 1, subject: 'Українська мова', teacherId: 2 },
-  { id: 13, className: '8-А', weekday: 4, lessonNumber: 2, subject: 'Фізика', teacherId: 5 },
-  { id: 14, className: '8-А', weekday: 4, lessonNumber: 3, subject: 'Інформатика', teacherId: 6 },
-  { id: 15, className: '8-А', weekday: 5, lessonNumber: 1, subject: 'Математика', teacherId: 1 },
-  { id: 16, className: '8-А', weekday: 5, lessonNumber: 2, subject: 'Англійська мова', teacherId: 3 },
-  { id: 17, className: '8-Б', weekday: 1, lessonNumber: 1, subject: 'Українська мова', teacherId: 2 },
-  { id: 18, className: '8-Б', weekday: 1, lessonNumber: 2, subject: 'Математика', teacherId: 1 },
-  { id: 19, className: '8-Б', weekday: 2, lessonNumber: 1, subject: 'Історія', teacherId: 4 },
-  { id: 20, className: '8-Б', weekday: 3, lessonNumber: 1, subject: 'Англійська мова', teacherId: 3 },
-];
-
 export const MOCK_ATTENDANCE: AttendanceRecord[] = [
   { studentId: 1, lessonId: 102, status: 'A', reason: 'Особисті справи' },
   { studentId: 2, lessonId: 102, status: 'A', reason: 'Сімейні обставини', comment: 'Виїзд з родиною' },
@@ -89,6 +48,34 @@ export const MOCK_ATTENDANCE: AttendanceRecord[] = [
   { studentId: 7, lessonId: 104, status: 'E', reason: 'Олімпіада' },
   { studentId: 8, lessonId: 201, status: 'S', reason: 'Хвороба' },
   { studentId: 9, lessonId: 202, status: 'E', reason: 'Медична довідка' },
+];
+
+export const MOCK_STUDENT_MEALS: StudentMeal[] = [
+  { studentId: 1, date: '2026-06-22', hadMeal: true },
+  { studentId: 1, date: '2026-06-24', hadMeal: true },
+  { studentId: 1, date: '2026-06-25', hadMeal: true },
+  { studentId: 1, date: '2026-06-26', hadMeal: true },
+  { studentId: 2, date: '2026-06-22', hadMeal: true },
+  { studentId: 2, date: '2026-06-24', hadMeal: true },
+  { studentId: 2, date: '2026-06-25', hadMeal: true },
+  { studentId: 2, date: '2026-06-26', hadMeal: true },
+  { studentId: 3, date: '2026-06-23', hadMeal: true },
+  { studentId: 3, date: '2026-06-24', hadMeal: true },
+  { studentId: 3, date: '2026-06-25', hadMeal: true },
+  { studentId: 4, date: '2026-06-22', hadMeal: true },
+  { studentId: 4, date: '2026-06-23', hadMeal: true },
+  { studentId: 4, date: '2026-06-24', hadMeal: true },
+  { studentId: 4, date: '2026-06-25', hadMeal: true },
+  { studentId: 4, date: '2026-06-26', hadMeal: true },
+  { studentId: 6, date: '2026-06-22', hadMeal: true },
+  { studentId: 6, date: '2026-06-23', hadMeal: true },
+  { studentId: 6, date: '2026-06-24', hadMeal: true },
+  { studentId: 6, date: '2026-06-25', hadMeal: true },
+  { studentId: 6, date: '2026-06-26', hadMeal: true },
+  { studentId: 7, date: '2026-06-22', hadMeal: true },
+  { studentId: 7, date: '2026-06-23', hadMeal: true },
+  { studentId: 7, date: '2026-06-24', hadMeal: true },
+  { studentId: 7, date: '2026-06-26', hadMeal: true },
 ];
 
 export const MOCK_ATTENDANCE_REPORT_DAYS: AttendanceReportDay[] = [

@@ -18,20 +18,6 @@ export interface SchoolClass {
   isActive: boolean;
 }
 
-export interface Teacher {
-  id: number;
-  fullName: string;
-  subject?: string;
-  subjectIds?: number[];
-  isClassTeacher?: boolean;
-}
-
-export interface Subject {
-  id: number;
-  name: string;
-  isActive: boolean;
-}
-
 export interface Lesson {
   id: number;
   order: number;
@@ -42,20 +28,18 @@ export interface Lesson {
   endsAt: string;
 }
 
-export interface ScheduleLesson {
-  id: number;
-  className: string;
-  weekday: number;
-  lessonNumber: number;
-  subject: string;
-  teacherId: number;
-}
-
 export interface AttendanceRecord {
   studentId: number;
   lessonId: number;
   status: AttendanceExceptionStatus;
   reason?: string;
+  comment?: string;
+}
+
+export interface StudentMeal {
+  studentId: number;
+  date: string;
+  hadMeal: boolean;
   comment?: string;
 }
 

@@ -1,14 +1,14 @@
 <section class="attendance-page">
   <ui-page-header title="Відвідування" [eyebrow]="headerDateLabel()" [hasActions]="true">
     <div class="date-controls">
-      <button class="icon-button" type="button" title="Попередній навчальний день" aria-label="Попередній навчальний день" (click)="moveAttendanceDate(-1)">
+      <button class="icon-button" type="button" title="Попередній тиждень" aria-label="Попередній тиждень" (click)="moveAttendanceDate(-1)">
         <ui-icon name="chevron-left" />
       </button>
-      <ui-date-picker [label]="dateLabel()" [selectedDate]="attendanceDate()" (selectedDateChange)="updateAttendanceDate($event)" />
-      <button class="icon-button" type="button" title="Наступний навчальний день" aria-label="Наступний навчальний день" (click)="moveAttendanceDate(1)">
+      <ui-date-picker selectionMode="week" [label]="dateLabel()" [selectedDate]="attendanceDate()" [disabledDates]="disabledCalendarDates()" (selectedDateChange)="updateAttendanceDate($event)" />
+      <button class="icon-button" type="button" title="Наступний тиждень" aria-label="Наступний тиждень" (click)="moveAttendanceDate(1)">
         <ui-icon name="chevron-right" />
       </button>
-      <button class="today-button" type="button" (click)="goToToday()">Сьогодні</button>
+      <button class="today-button" type="button" (click)="goToToday()">Поточний тиждень</button>
     </div>
   </ui-page-header>
 
@@ -35,6 +35,17 @@
         [value]="searchTerm()"
         (valueChange)="searchTerm.set($event)"
       />
+      <div class="table-mode" aria-label="Режим таблиці">
+        @for (mode of tableModeOptions; track mode.value) {
+          <button
+            type="button"
+            [class.table-mode__button--active]="tableMode() === mode.value"
+            (click)="updateTableMode(mode.value)"
+          >
+            {{ mode.label }}
+          </button>
+        }
+      </div>
     </ui-toolbar>
 
     @if (emptyState(); as empty) {
@@ -45,10 +56,11 @@
         <thead>
           <tr>
             <th>Учень</th>
-            @for (lesson of visibleLessons(); track lesson.id) {
-              <th>
-                <strong>{{ lesson.order }} урок</strong>
-                <small>{{ lesson.subject }}</small>
+            @for (day of visibleDays(); track day.id) {
+              <th [class.day-disabled]="!day.isSchoolDay">
+                <strong>{{ day.dateLabel }}</strong>
+                <small>{{ day.label }}</small>
+                <em [class.day-note--hidden]="day.isSchoolDay">{{ day.note || 'Вихідний' }}</em>
               </th>
             }
             <th>Пропуски</th>
@@ -65,26 +77,33 @@
                   </button>
                 </div>
               </td>
-              @for (lesson of visibleLessons(); track lesson.id) {
-                @let status = statusFor(row, lesson.id);
-                <td [class.cell--changed]="isCellChanged(row.student.id, lesson.id)">
+              @for (day of visibleDays(); track day.id) {
+                @let status = statusFor(row, day.id);
+                <td [class.cell--changed]="isDisplayCellChanged(row, day)" [class.cell--disabled]="!day.isSchoolDay">
                   <button
                     class="status-cell"
                     [ngClass]="{
-                      'status-cell--present': status === 'present',
-                      'status-cell--A': status === 'A',
-                      'status-cell--S': status === 'S',
-                      'status-cell--E': status === 'E',
-                      'status-cell--changed': isCellChanged(row.student.id, lesson.id)
+                      'status-cell--present': day.isSchoolDay && status === 'present',
+                      'status-cell--A': day.isSchoolDay && status === 'A',
+                      'status-cell--S': day.isSchoolDay && status === 'S',
+                      'status-cell--E': day.isSchoolDay && status === 'E',
+                      'status-cell--changed': day.isSchoolDay && isCellChanged(row.student.id, day.id),
+                      'status-cell--disabled': !day.isSchoolDay,
+                      'status-cell--meal': tableMode() === 'meals',
+                      'status-cell--meal-yes': tableMode() === 'meals' && !!mealFor(row.student.id, toIsoDate(day.date))?.hadMeal,
+                      'status-cell--meal-no': tableMode() === 'meals' && day.isSchoolDay && !mealFor(row.student.id, toIsoDate(day.date))?.hadMeal,
+                      'status-cell--combined': tableMode() === 'combined',
+                      'status-cell--meal-changed': tableMode() !== 'attendance' && isMealChanged(row.student.id, toIsoDate(day.date))
                     }"
-                    [attr.aria-label]="statusLabel(status)"
+                    [attr.aria-label]="tableMode() === 'attendance' ? statusLabel(status) : mealText(row, day)"
                     type="button"
-                    (click)="openCellEditor(row, lesson)"
+                    [disabled]="tableMode() === 'meals' ? !isMealEditable(row, day) : !day.isSchoolDay"
+                    (click)="handleCellClick(row, day, $event)"
                   >
-                    {{ cellText(row, lesson.id) }}
+                    {{ day.isSchoolDay ? cellText(row, day.id) : '—' }}
                   </button>
 
-                  @if (isEditingCell(row.student.id, lesson.id)) {
+                  @if (false && day.isSchoolDay && isEditingCell(row.student.id, day.id)) {
                     <div class="cell-editor">
                       <select
                         aria-label="Статус відвідування"
@@ -129,9 +148,9 @@
         <tfoot>
           <tr>
             <th>Всього пропусків</th>
-            @for (lesson of visibleLessons(); track lesson.id) {
-              <td>
-                <strong [class.missed-danger]="lessonMissedCount(lesson.id) > 2">{{ lessonMissedCount(lesson.id) }}</strong>
+            @for (day of visibleDays(); track day.id) {
+              <td [class.cell--disabled]="!day.isSchoolDay">
+                <strong [class.missed-danger]="dayMissedCount(day.id) > 2">{{ dayMissedCount(day.id) }}</strong>
               </td>
             }
             <td></td>
@@ -145,27 +164,71 @@
       <div class="attendance-card__status" role="status">
         @if (saveNotice()) {
           {{ saveNotice() }}
-        } @else if (changedCellCount()) {
-          Змінено клітинок: {{ changedCellCount() }}
+        } @else if (changedTotalCount()) {
+          Змінено клітинок: {{ changedTotalCount() }}
         } @else {
           Змін немає
         }
       </div>
       <div class="attendance-card__actions">
-        <button class="secondary-button" type="button" [disabled]="!changedCellCount()" (click)="requestDiscardChanges()">
+        <button class="secondary-button" type="button" [disabled]="!changedTotalCount()" (click)="requestDiscardChanges()">
           Скасувати зміни
         </button>
-        <button class="primary-button" type="button" [disabled]="!changedCellCount()" (click)="requestSaveChanges()">
+        <button class="primary-button" type="button" [disabled]="!changedTotalCount()" (click)="requestSaveChanges()">
           Зберегти зміни
         </button>
       </div>
     </div>
   </article>
 
+  @if (editingCell() && cellEditorPosition(); as position) {
+    <div
+      class="floating-cell-editor"
+      [style.top.px]="position.top"
+      [style.left.px]="position.left"
+    >
+      <select
+        aria-label="Статус відвідування"
+        [ngModel]="inlineStatus()"
+        (ngModelChange)="updateInlineStatus($event)"
+      >
+        @for (option of editStatusOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+
+      @if (inlineStatus() === 'A') {
+        <select
+          aria-label="Причина відсутності"
+          [ngModel]="inlineReason()"
+          (ngModelChange)="updateInlineReason($event)"
+        >
+          @for (option of reasonOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+
+        <input
+          aria-label="Коментар"
+          placeholder="Коментар"
+          [ngModel]="inlineComment()"
+          (ngModelChange)="updateInlineComment($event)"
+        />
+      }
+
+      <button class="cell-editor__done" type="button" (click)="closeCellEditor()">Готово</button>
+    </div>
+  }
+
   <div class="stats-grid">
     <ui-stat-card label="Всього учнів" [value]="dailySummary().totalStudents" icon="users" tone="primary" />
-    <ui-stat-card label="Присутні весь день" [value]="dailySummary().fullyPresent" icon="check" tone="success" />
-    <ui-stat-card label="Відсутні весь день" [value]="dailySummary().fullyAbsent" icon="x" tone="danger" />
+    <ui-stat-card label="Без пропусків" [value]="dailySummary().withoutAbsences" icon="check" tone="success" />
+    <ui-stat-card label="Мають пропуски" [value]="dailySummary().withAbsences" icon="calendar" tone="warning" />
+    @if (tableMode() === 'meals') {
+      <ui-stat-card label="Не харчувались" [value]="mealSummary().studentsWithoutMeal" icon="x" tone="danger" />
+    } @else {
+      <ui-stat-card label="Всього неявок" [value]="dailySummary().totalAbsences" icon="x" tone="danger" />
+    }
   </div>
 
   <ui-side-panel [open]="!!selectedCell()" title="Учень" (closed)="closeAttendanceEditor()">
@@ -179,18 +242,22 @@
           <span>Клас</span>
           <strong>{{ selectedStudent()?.className }}</strong>
         </div>
+        <div>
+          <span>Тиждень</span>
+          <strong>{{ selectedWeekLabel() }}</strong>
+        </div>
       </section>
 
       <label class="day-absence">
         <input
           type="checkbox"
-          [ngModel]="draftAllDayAbsent()"
-          (ngModelChange)="updateDraftAllDayAbsent($event)"
+          [ngModel]="draftFullWeekAbsent()"
+          (ngModelChange)="updateDraftFullWeekAbsent($event)"
         />
-        <span>Не буде присутнім цілий день</span>
+        <span>Учень не буде присутнім увесь тиждень</span>
       </label>
 
-      @if (draftAllDayAbsent()) {
+      @if (draftFullWeekAbsent()) {
         <ui-select
           label="Статус"
           [options]="allDayStatusOptions"
@@ -220,7 +287,7 @@
 
       <div class="editor__actions">
         <button class="secondary-button" type="button" (click)="closeAttendanceEditor()">Скасувати</button>
-        <button class="primary-button" type="button" [disabled]="!draftAllDayAbsent()" (click)="saveAttendance()">Зберегти</button>
+        <button class="primary-button" type="button" [disabled]="!draftFullWeekAbsent()" (click)="saveAttendance()">Зберегти</button>
       </div>
     </div>
   </ui-side-panel>
