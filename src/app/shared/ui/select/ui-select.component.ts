@@ -18,6 +18,7 @@ export interface UiSelectOption {
         [attr.aria-label]="ariaLabel || label"
         [disabled]="disabled"
         [ngModel]="value"
+        [ngModelOptions]="{ standalone: true }"
         (ngModelChange)="valueChange.emit($event)"
       >
         @for (option of options; track option.value) {

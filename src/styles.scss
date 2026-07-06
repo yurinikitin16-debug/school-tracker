@@ -155,23 +155,6 @@ table tbody tr:hover > .cell--changed {
   z-index: 2;
 }
 
-.attendance-page tbody td:first-child,
-.attendance-page tfoot th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--color-surface);
-}
-
-.attendance-page tbody tr:hover > td:first-child {
-  background: #f8f7ff;
-}
-
-.attendance-page thead th:first-child {
-  left: 0;
-  z-index: 3;
-}
-
 .attendance-page .student-cell {
   width: 100%;
   min-width: 0;

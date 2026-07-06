@@ -30,6 +30,8 @@ export class UiDatePickerComponent {
   @Input({ required: true }) selectedDate = new Date();
   @Input() selectionMode: 'day' | 'week' = 'day';
   @Input() disabledDates: string[] = [];
+  @Input() minDate = '';
+  @Input() maxDate = '';
   @Output() selectedDateChange = new EventEmitter<Date>();
 
   toggle(): void {
@@ -38,13 +40,40 @@ export class UiDatePickerComponent {
   }
 
   previousMonth(): void {
+    if (!this.canMoveMonth(-1)) {
+      return;
+    }
+
     const month = this.calendarMonth();
     this.calendarMonth.set(new Date(month.getFullYear(), month.getMonth() - 1, 1));
   }
 
   nextMonth(): void {
+    if (!this.canMoveMonth(1)) {
+      return;
+    }
+
     const month = this.calendarMonth();
     this.calendarMonth.set(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+  }
+
+  canMoveMonth(direction: -1 | 1): boolean {
+    const month = this.calendarMonth();
+    const targetMonth = new Date(month.getFullYear(), month.getMonth() + direction, 1);
+    const targetMonthStart = this.startOfMonth(targetMonth);
+    const targetMonthEnd = this.endOfMonth(targetMonth);
+    const min = this.parseIsoDate(this.minDate);
+    const max = this.parseIsoDate(this.maxDate);
+
+    if (min && targetMonthEnd < min) {
+      return false;
+    }
+
+    if (max && targetMonthStart > max) {
+      return false;
+    }
+
+    return true;
   }
 
   selectDate(day: CalendarDay): void {
@@ -100,10 +129,23 @@ export class UiDatePickerComponent {
         isInSelectedWeek: this.isSameWeek(date, selectedDate),
         isToday: this.isSameDate(date, today),
         isWeekend: date.getDay() === 0 || date.getDay() === 6,
-        isDisabled: date.getDay() === 0 || date.getDay() === 6 || this.disabledDates.includes(this.toIsoDate(date)),
+        isDisabled: this.isDateDisabled(date),
         weekKey: weekStart.toISOString(),
       };
     });
+  }
+
+  private isDateDisabled(date: Date): boolean {
+    const min = this.parseIsoDate(this.minDate);
+    const max = this.parseIsoDate(this.maxDate);
+
+    return (
+      date.getDay() === 0 ||
+      date.getDay() === 6 ||
+      this.disabledDates.includes(this.toIsoDate(date)) ||
+      (!!min && date < min) ||
+      (!!max && date > max)
+    );
   }
 
   private startOfWeek(date: Date): Date {
@@ -130,5 +172,27 @@ export class UiDatePickerComponent {
 
   private toIsoDate(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private parseIsoDate(value: string): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const [year, month, day] = value.split('-').map(Number);
+
+    if (!year || !month || !day) {
+      return null;
+    }
+
+    return new Date(year, month - 1, day);
+  }
+
+  private startOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+
+  private endOfMonth(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
   }
 }

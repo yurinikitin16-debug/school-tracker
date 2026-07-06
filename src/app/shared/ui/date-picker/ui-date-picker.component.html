@@ -4,9 +4,9 @@
   @if (isOpen()) {
     <div class="date-popover" role="dialog" aria-label="Вибір дати">
       <div class="calendar-header">
-        <button type="button" aria-label="Попередній місяць" (click)="previousMonth()">‹</button>
+        <button type="button" aria-label="Попередній місяць" [disabled]="!canMoveMonth(-1)" (click)="previousMonth()">‹</button>
         <strong>{{ calendarMonthLabel() }}</strong>
-        <button type="button" aria-label="Наступний місяць" (click)="nextMonth()">›</button>
+        <button type="button" aria-label="Наступний місяць" [disabled]="!canMoveMonth(1)" (click)="nextMonth()">›</button>
       </div>
 
       <div class="calendar-weekdays" aria-hidden="true">

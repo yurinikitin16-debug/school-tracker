@@ -1,0 +1,38 @@
+:host {
+  pointer-events: none;
+  position: fixed;
+  z-index: 120;
+  top: 18px;
+  right: 18px;
+}
+
+.toast {
+  min-width: 220px;
+  max-width: min(360px, calc(100vw - 36px));
+  padding: 14px 16px;
+  border: 1px solid #fecdd3;
+  border-radius: var(--radius-card);
+  background: #fff1f3;
+  box-shadow: 0 18px 42px rgba(148, 27, 50, 0.14);
+  color: #b91c3c;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.toast--error {
+  background: #fff1f3;
+  color: #b91c3c;
+}
+
+@media (max-width: 760px) {
+  :host {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+  }
+
+  .toast {
+    width: 100%;
+    max-width: none;
+  }
+}

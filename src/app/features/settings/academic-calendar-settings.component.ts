@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { AcademicCalendarException } from '../../core/models/school.models';
 import { AcademicYearService } from '../../core/services/academic-year.service';
-import { SchoolDataService } from '../../core/services/school-data.service';
+import { AcademicCalendarApiService, AcademicCalendarExceptionDto } from '../../core/services/academic-calendar-api.service';
+import { AcademicYearDto, AcademicYearsApiService } from '../../core/services/academic-years-api.service';
 import { UiIconComponent } from '../../shared/ui/icon/ui-icon.component';
 import { UiInputComponent } from '../../shared/ui/input/ui-input.component';
 import { UiSelectComponent, UiSelectOption } from '../../shared/ui/select/ui-select.component';
@@ -26,9 +27,11 @@ interface CalendarDay {
   styleUrl: './academic-calendar-settings.component.scss',
 })
 export class AcademicCalendarSettingsComponent {
-  private readonly schoolData = inject(SchoolDataService);
   private readonly academicYear = inject(AcademicYearService);
+  private readonly academicYearsApi = inject(AcademicYearsApiService);
+  private readonly academicCalendarApi = inject(AcademicCalendarApiService);
 
+  readonly academicYears = signal<AcademicYearDto[]>([]);
   readonly exceptions = signal<AcademicCalendarException[]>([]);
   readonly selectedYear = signal(this.academicYear.currentYear());
   readonly month = signal('');
@@ -40,11 +43,9 @@ export class AcademicCalendarSettingsComponent {
   readonly draftStatus = signal<CalendarStatus>('day-off');
   readonly draftNote = signal('');
 
-  readonly yearOptions: UiSelectOption[] = [
-    { label: '2024/2025', value: '2024/2025' },
-    { label: '2025/2026', value: '2025/2026' },
-    { label: '2026/2027', value: '2026/2027' },
-  ];
+  readonly yearOptions = computed<UiSelectOption[]>(() =>
+    this.academicYears().map((year) => ({ label: year.name, value: year.name })),
+  );
 
   readonly statusOptions: UiSelectOption[] = [
     { label: 'Навчальний день', value: 'school' },
@@ -85,10 +86,7 @@ export class AcademicCalendarSettingsComponent {
   readonly panelTitle = computed(() => this.selectedDate() ? this.formatDate(this.selectedDate()!) : 'День');
 
   constructor() {
-    this.month.set(this.academicYearStart(this.selectedYear()));
-    this.schoolData.getAcademicCalendarExceptions().subscribe((exceptions) => {
-      this.exceptions.set(exceptions.map((exception) => ({ ...exception })));
-    });
+    this.loadAcademicYears();
   }
 
   @HostListener('document:mouseup')
@@ -105,6 +103,7 @@ export class AcademicCalendarSettingsComponent {
     this.selectedYear.set(year);
     this.month.set(this.academicYearStart(year));
     this.closePanel();
+    this.loadExceptionsForSelectedYear();
   }
 
   changeMonth(direction: number): void {
@@ -159,47 +158,66 @@ export class AcademicCalendarSettingsComponent {
       return;
     }
 
+    const academicYear = this.selectedAcademicYear();
+    if (!academicYear) {
+      return;
+    }
+
     const isSchoolDay = this.draftStatus() === 'school';
     const note = this.draftNote().trim();
-    const selectedDates = new Set(dates);
 
-    this.exceptions.update((exceptions) => {
-      let nextId = Math.max(0, ...exceptions.map((exception) => exception.id)) + 1;
-      const updated = exceptions
-        .filter((exception) => !(
-          exception.academicYear === this.selectedYear() &&
-          selectedDates.has(exception.date) &&
-          isSchoolDay === !this.isWeekend(exception.date) &&
-          !note
-        ))
-        .map((exception) => {
-          if (exception.academicYear !== this.selectedYear() || !selectedDates.has(exception.date)) {
-            return exception;
-          }
-
-          return { ...exception, isSchoolDay, note: note || undefined };
-        });
-
-      for (const date of dates) {
-        const alreadyExists = updated.some((exception) => exception.academicYear === this.selectedYear() && exception.date === date);
-        const hasDefaultValue = isSchoolDay === !this.isWeekend(date) && !note;
-        if (!alreadyExists && !hasDefaultValue) {
-          updated.push({
-            id: nextId,
-            academicYear: this.selectedYear(),
-            date,
-            isSchoolDay,
-            note: note || undefined,
-          });
-          nextId += 1;
-        }
-      }
-
-      return updated;
+    this.academicCalendarApi.saveExceptions({
+      academicYearId: academicYear.id,
+      dates,
+      isSchoolDay,
+      note: note || undefined,
+    }).subscribe((exceptions) => {
+      this.exceptions.set(this.mapExceptions(exceptions, academicYear.name));
+      this.closePanel();
     });
+  }
 
-    this.schoolData.updateAcademicCalendarExceptions(this.exceptions());
-    this.closePanel();
+  private loadAcademicYears(): void {
+    this.academicYearsApi.getAcademicYears().subscribe((academicYears) => {
+      const sortedYears = [...academicYears].sort((a, b) => b.name.localeCompare(a.name));
+      const selectedYear =
+        sortedYears.find((year) => year.name === this.selectedYear())?.name ??
+        sortedYears.find((year) => year.isCurrent)?.name ??
+        sortedYears[0]?.name ??
+        '';
+
+      this.academicYears.set(sortedYears);
+      this.selectedYear.set(selectedYear);
+      this.month.set(this.academicYearStart(selectedYear));
+      this.loadExceptionsForSelectedYear();
+    });
+  }
+
+  private loadExceptionsForSelectedYear(): void {
+    const academicYear = this.selectedAcademicYear();
+
+    if (!academicYear) {
+      this.exceptions.set([]);
+      return;
+    }
+
+    this.academicCalendarApi.getExceptions(academicYear.id).subscribe((exceptions) => {
+      this.exceptions.set(this.mapExceptions(exceptions, academicYear.name));
+    });
+  }
+
+  private selectedAcademicYear(): AcademicYearDto | undefined {
+    return this.academicYears().find((year) => year.name === this.selectedYear());
+  }
+
+  private mapExceptions(exceptions: AcademicCalendarExceptionDto[], academicYear: string): AcademicCalendarException[] {
+    return exceptions.map((exception) => ({
+      id: exception.id,
+      academicYear,
+      date: exception.date,
+      isSchoolDay: exception.isSchoolDay,
+      note: exception.note,
+    }));
   }
 
   private openDates(dates: string[]): void {
@@ -229,6 +247,11 @@ export class AcademicCalendarSettingsComponent {
   }
 
   private academicYearStart(year: string): string {
+    if (!year) {
+      const fallbackYear = new Date().getFullYear();
+      return `${fallbackYear}-09-01`;
+    }
+
     return `${year.slice(0, 4)}-09-01`;
   }
 

@@ -31,7 +31,6 @@ export class AppShellComponent {
   ];
 
   readonly directoryItems: NavItem[] = [
-    { label: 'Учні', route: '/students', icon: 'users' },
     { label: 'Класи', route: '/classes', icon: 'database' },
   ];
 
@@ -40,6 +39,8 @@ export class AppShellComponent {
   );
 
   constructor() {
+    this.academicYear.loadAppContext();
+
     this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd)).subscribe((event) => {
       this.currentUrl.set(event.urlAfterRedirects);
 

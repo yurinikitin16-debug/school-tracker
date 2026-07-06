@@ -15,6 +15,11 @@
   width: 140px;
 }
 
+.report-search {
+  min-width: 260px;
+  flex: 1;
+}
+
 .reports-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));
@@ -77,8 +82,167 @@ p {
 }
 
 .report-table-wrap {
+  max-height: calc(100vh - 300px);
   overflow: auto;
   border-top: 1px solid var(--color-border-soft);
+}
+
+.overview-month-table {
+  min-width: max-content;
+  table-layout: fixed;
+}
+
+.overview-month-table th,
+.overview-month-table td {
+  padding: 7px 6px;
+  font-size: 12px;
+}
+
+.overview-month-table__number {
+  width: 34px;
+  min-width: 34px;
+  color: var(--color-muted-strong);
+  font-weight: 900;
+}
+
+.overview-month-table__student {
+  position: sticky;
+  left: 34px;
+  z-index: 2;
+  width: 156px;
+  min-width: 156px;
+  border-right: 2px solid #c7d2e4;
+  background: var(--color-surface);
+  text-align: left;
+}
+
+.overview-month-table thead .overview-month-table__student {
+  z-index: 4;
+  background: #f8faff;
+}
+
+.overview-month-table__number {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--color-surface);
+}
+
+.overview-month-table thead .overview-month-table__number {
+  z-index: 5;
+  background: #f8faff;
+}
+
+.overview-month-table tbody tr:hover > .overview-month-table__number,
+.overview-month-table tbody tr:hover > .overview-month-table__student {
+  background: #f8f7ff;
+}
+
+.overview-month-table__day {
+  width: 40px;
+  min-width: 40px;
+}
+
+.overview-month-table__week-start {
+  border-left: 2px solid #c7d2e4;
+}
+
+.overview-month-table__total {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  width: 58px;
+  min-width: 58px;
+  border-left: 2px solid #c7d2e4;
+  background: var(--color-surface);
+  font-weight: 900;
+}
+
+.overview-month-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.overview-month-table thead .overview-month-table__number,
+.overview-month-table thead .overview-month-table__student,
+.overview-month-table thead .overview-month-table__total {
+  z-index: 6;
+}
+
+.overview-month-table thead .overview-month-table__total,
+.overview-month-table tfoot .overview-month-table__total {
+  background: #f8faff;
+}
+
+.overview-month-table tfoot th,
+.overview-month-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: #f8faff;
+  border-top: 1px solid var(--color-border);
+  font-weight: 900;
+}
+
+.overview-month-table tfoot .overview-month-table__number,
+.overview-month-table tfoot .overview-month-table__student,
+.overview-month-table tfoot .overview-month-table__total {
+  z-index: 7;
+}
+
+.overview-month-table tbody tr:hover > .overview-month-table__total {
+  background: #f8f7ff;
+}
+
+.overview-month-table__day strong,
+.overview-month-table__day small {
+  display: block;
+}
+
+.overview-month-table__day strong {
+  font-size: 13px;
+}
+
+.overview-month-table__day small {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.overview-mark {
+  display: inline-grid;
+  min-width: 26px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.overview-mark--present {
+  background: #dcf7e8;
+  color: #006b43;
+}
+
+.overview-mark--A {
+  background: #ffdce4;
+  color: #c01434;
+}
+
+.overview-mark--S {
+  min-width: 30px;
+  background: #ffe1a8;
+  color: #8a4700;
+}
+
+.overview-mark--E {
+  min-width: 34px;
+  background: #dce7ff;
+  color: #1f55d8;
 }
 
 .report-export {
@@ -185,6 +349,10 @@ tr:last-child td {
   color: #dc2644;
 }
 
+.report-number--success {
+  color: #128653;
+}
+
 .student-report-table th:first-child,
 .student-report-table td:first-child {
   text-align: left;
@@ -270,8 +438,10 @@ tr:last-child td {
 
 @media (max-width: 760px) {
   .report-control,
-  .report-control--class {
+  .report-control--class,
+  .report-search {
     width: 100%;
+    min-width: 100%;
   }
 
   .reports-stats {

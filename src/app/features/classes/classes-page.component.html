@@ -19,56 +19,75 @@
     <button class="primary-button classes-add" type="button" (click)="openCreate()">Додати клас</button>
   </ui-toolbar>
 
-  <article class="classes-card">
-    @if (rows().length) {
-      <div class="classes-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Клас</th>
-              <th>Учнів</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of rows(); track row.schoolClass.id) {
+  <div class="classes-overview">
+    <article class="classes-card">
+      @if (groupedRows().length) {
+        <div class="classes-table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td><strong>{{ row.schoolClass.name }}</strong></td>
-                <td>
-                  <button
-                    class="class-students-count"
-                    type="button"
-                    [attr.aria-label]="'Показати учнів класу ' + row.schoolClass.name"
-                    (click)="openStudents(row.schoolClass)"
-                  >
-                    {{ row.studentsCount }}
-                  </button>
-                </td>
-                <td>
-                  <button class="class-edit" type="button" title="Редагувати клас" aria-label="Редагувати клас" (click)="openEdit(row.schoolClass)">
-                    <ui-icon name="pencil" />
-                  </button>
-                </td>
+                <th>Клас</th>
+                <th>Учнів</th>
+                <th></th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    } @else {
-      <ui-empty-state title="Класів не знайдено" description="Змініть пошук або фільтр стану." icon="database" />
-    }
-  </article>
+            </thead>
+            <tbody>
+              @for (group of groupedRows(); track group.stage) {
+                <tr class="class-stage-row">
+                  <td colspan="3">{{ group.label }}</td>
+                </tr>
+
+                @for (row of group.rows; track row.schoolClass.id) {
+                  <tr>
+                    <td><strong>{{ row.schoolClass.name }}</strong></td>
+                    <td>
+                      <button
+                        class="class-students-count"
+                        type="button"
+                        [attr.aria-label]="'Показати учнів класу ' + row.schoolClass.name"
+                        (click)="openStudents(row.schoolClass)"
+                      >
+                        {{ row.studentsCount }}
+                      </button>
+                    </td>
+                    <td>
+                      <button class="class-edit" type="button" title="Редагувати клас" aria-label="Редагувати клас" (click)="openEdit(row.schoolClass)">
+                        <ui-icon name="pencil" />
+                      </button>
+                    </td>
+                  </tr>
+                }
+
+                <tr class="class-stage-total">
+                  <td>Всього</td>
+                  <td><span class="class-students-count class-students-count--static">{{ group.studentsCount }}</span></td>
+                  <td></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <ui-empty-state title="Класів не знайдено" description="Змініть пошук або фільтр стану." icon="database" />
+      }
+    </article>
+
+    <aside class="school-total-card">
+      <span>Всього в школі:</span>
+      <strong>{{ totalStudentsInSchool() }}</strong>
+    </aside>
+  </div>
 
   <ui-side-panel [open]="isPanelOpen()" [title]="panelTitle()" (closed)="closePanel()">
-    @if (editorMode() === 'class') {
-    <div class="class-editor">
-      <ui-input label="Назва класу" [value]="draftName()" (valueChange)="draftName.set($event)" />
+    <form class="class-editor" (ngSubmit)="saveClass()">
+      <ui-input label="Назва класу" [value]="draftName()" [autofocus]="true" (valueChange)="draftName.set($event)" />
 
       @if (isCreatingClass()) {
         <label class="class-editor__year-toggle">
           <input
             type="checkbox"
             [ngModel]="isAcademicYearOverrideEnabled()"
+            [ngModelOptions]="{ standalone: true }"
             (ngModelChange)="isAcademicYearOverrideEnabled.set($event)"
           />
           <span>Змінити навчальний рік</span>
@@ -82,7 +101,7 @@
         />
       }
 
-      <button class="primary-button" type="button" [disabled]="!draftName().trim()" (click)="saveClass()">
+      <button class="primary-button" type="submit" [disabled]="!draftName().trim()">
         {{ isCreatingClass() ? 'Додати клас' : 'Зберегти назву' }}
       </button>
 
@@ -94,69 +113,98 @@
         </div>
         <button class="secondary-button" type="button" (click)="promoteClass()">Перевести клас</button>
       </section>
-
-      <section class="class-editor__action">
-        <div>
-          <strong>Учні класу</strong>
-          <span>Додайте нового учня одразу до цього класу.</span>
-        </div>
-        <button class="secondary-button" type="button" (click)="openStudentCreate()">Додати учня</button>
-      </section>
-
-      <section class="class-editor__action class-editor__action--danger">
-        <div>
-          <strong>Архівувати клас</strong>
-          <span>Клас зникне з активного навчального року, але дані залишаться.</span>
-        </div>
-        <button class="danger-button" type="button" (click)="archiveClass()">Архівувати</button>
-      </section>
       }
-    </div>
-    } @else {
-      <div class="class-student-editor">
-        <ui-input label="Прізвище" [value]="draftStudentLastName()" (valueChange)="draftStudentLastName.set($event)" />
-        <ui-input label="Ім'я" [value]="draftStudentFirstName()" (valueChange)="draftStudentFirstName.set($event)" />
-        <ui-input label="По батькові" [value]="draftStudentMiddleName()" (valueChange)="draftStudentMiddleName.set($event)" />
-        <ui-input label="Дата народження" type="date" [value]="draftStudentBirthDate()" (valueChange)="draftStudentBirthDate.set($event)" />
-        <label class="class-student-editor__class">
-          <span>Клас</span>
-          <strong>{{ selectedClass()?.name }}</strong>
-        </label>
-        <div class="class-student-editor__actions">
-          <button class="secondary-button" type="button" (click)="closeStudentCreate()">Назад</button>
-          <button
-            class="primary-button"
-            type="button"
-            [disabled]="!draftStudentLastName().trim() || !draftStudentFirstName().trim() || !draftStudentBirthDate()"
-            (click)="saveStudent()"
-          >
-            Додати учня
-          </button>
-        </div>
-      </div>
-    }
+    </form>
   </ui-side-panel>
 
   <ui-side-panel [open]="isStudentsPanelOpen()" [title]="studentsPanelTitle()" (closed)="closeStudentsPanel()">
     <div class="class-students-panel">
-      <ui-input
-        icon="search"
-        placeholder="Пошук учня..."
-        [value]="studentSearchTerm()"
-        (valueChange)="studentSearchTerm.set($event)"
-      />
-
-      @if (classStudents().length) {
-        <ul class="class-students-list">
-          @for (student of classStudents(); track student.id) {
-            <li>
-              <strong>{{ student.lastName }} {{ student.firstName }}</strong>
-            </li>
-          }
-        </ul>
+      @if (isBulkAddingClassStudents()) {
+        <form class="class-student-editor" (ngSubmit)="saveBulkClassStudents()">
+          <label class="bulk-students-field">
+            <span>Список учнів</span>
+            <textarea
+              [ngModel]="bulkStudentsText()"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="bulkStudentsText.set($event)"
+              data-autofocus
+              placeholder="Іваненко Андрій&#10;Петренко Софія&#10;Коваленко Максим"
+            ></textarea>
+            <small>Один рядок — один учень. Формат: Прізвище Ім'я.</small>
+          </label>
+          <div class="bulk-students-preview">
+            Буде додано: <strong>{{ parsedBulkStudents().length }}</strong>
+          </div>
+          <div class="class-student-editor__actions">
+            <button class="secondary-button" type="button" (click)="closeClassStudentBulkCreate()">Назад</button>
+            <button class="primary-button" type="submit" [disabled]="!parsedBulkStudents().length">Додати учнів</button>
+          </div>
+        </form>
+      } @else if (isStudentEditorOpen()) {
+        <form class="class-student-editor" (ngSubmit)="saveClassStudent()">
+          <ui-input label="Прізвище" [value]="draftStudentLastName()" [autofocus]="true" (valueChange)="draftStudentLastName.set($event)" />
+          <ui-input label="Ім'я" [value]="draftStudentFirstName()" (valueChange)="draftStudentFirstName.set($event)" />
+          <label class="class-student-editor__class">
+            <span>Клас</span>
+            <strong>{{ selectedStudentsClass()?.name }}</strong>
+          </label>
+          <div class="class-student-editor__actions">
+            <button class="secondary-button" type="button" (click)="closeClassStudentEditor()">Назад</button>
+            <button
+              class="primary-button"
+              type="submit"
+              [disabled]="!draftStudentLastName().trim() || !draftStudentFirstName().trim()"
+            >
+              {{ isCreatingClassStudent() ? 'Додати учня' : 'Зберегти' }}
+            </button>
+          </div>
+        </form>
       } @else {
-        <ui-empty-state title="У класі немає учнів" description="Учнів можна буде додати або перевести сюди з довідника учнів." icon="users" />
+        <div class="class-students-panel__toolbar">
+          <ui-input
+            icon="search"
+            placeholder="Пошук учня..."
+            [value]="studentSearchTerm()"
+            (valueChange)="studentSearchTerm.set($event)"
+          />
+          <div class="class-students-panel__actions">
+            <button class="secondary-button" type="button" (click)="openClassStudentBulkCreate()">Додати списком</button>
+            <button class="primary-button" type="button" (click)="openClassStudentCreate()">Додати учня</button>
+          </div>
+        </div>
+
+        @if (isStudentsLoading()) {
+          <ui-empty-state title="Завантажуємо учнів" description="Список учнів цього класу зараз підтягується з API." icon="users" />
+        } @else if (classStudents().length) {
+          <ul class="class-students-list">
+            @for (student of classStudents(); track student.id; let studentIndex = $index) {
+              <li>
+                <span class="class-students-list__number">{{ studentIndex + 1 }}</span>
+                <strong>{{ student.lastName }} {{ student.firstName }}</strong>
+                <div class="class-students-list__actions">
+                  <button class="class-edit" type="button" title="Редагувати учня" aria-label="Редагувати учня" (click)="openClassStudentEdit(student)">
+                    <ui-icon name="pencil" />
+                  </button>
+                  <button class="class-delete" type="button" title="Видалити учня" aria-label="Видалити учня" (click)="requestDeleteStudent(student)">
+                    <ui-icon name="x" />
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        } @else {
+          <ui-empty-state title="У класі немає учнів" description="Додайте першого учня до цього класу." icon="users" />
+        }
       }
     </div>
   </ui-side-panel>
+
+  <ui-confirm-dialog
+    [open]="!!deletingStudent()"
+    title="Видалити учня?"
+    [description]="'Учень ' + (deletingStudent()?.lastName ?? '') + ' ' + (deletingStudent()?.firstName ?? '') + ' стане неактивним і зникне зі списку класу.'"
+    confirmLabel="Видалити"
+    (closed)="closeDeleteStudentConfirmation()"
+    (confirmed)="confirmDeleteStudent()"
+  />
 </section>

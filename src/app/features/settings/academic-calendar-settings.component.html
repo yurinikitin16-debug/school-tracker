@@ -7,7 +7,7 @@
     <ui-select
       class="calendar-settings__year"
       ariaLabel="Навчальний рік"
-      [options]="yearOptions"
+      [options]="yearOptions()"
       [value]="selectedYear()"
       (valueChange)="updateYear($event)"
     />

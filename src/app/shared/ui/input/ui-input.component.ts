@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UiIconComponent, UiIconName } from '../icon/ui-icon.component';
 
@@ -15,9 +15,12 @@ import { UiIconComponent, UiIconName } from '../icon/ui-icon.component';
           <ui-icon class="field__icon" [name]="icon" />
         }
         <input
+          #control
           [attr.aria-label]="ariaLabel || label || placeholder"
+          [attr.data-autofocus]="autofocus ? '' : null"
           [disabled]="disabled"
           [ngModel]="value"
+          [ngModelOptions]="{ standalone: true }"
           [placeholder]="placeholder"
           [type]="type"
           (ngModelChange)="valueChange.emit($event)"
@@ -35,5 +38,19 @@ export class UiInputComponent {
   @Input() value = '';
   @Input() icon: UiIconName | '' = '';
   @Input() disabled = false;
+  @Input() autofocus = false;
   @Output() valueChange = new EventEmitter<string>();
+  @ViewChild('control') private readonly control?: ElementRef<HTMLInputElement>;
+
+  ngAfterViewInit(): void {
+    if (this.autofocus) {
+      this.focusControl();
+      setTimeout(() => this.focusControl());
+      setTimeout(() => this.focusControl(), 120);
+    }
+  }
+
+  private focusControl(): void {
+    this.control?.nativeElement.focus();
+  }
 }

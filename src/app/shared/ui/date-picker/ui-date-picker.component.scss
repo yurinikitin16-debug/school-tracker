@@ -61,6 +61,12 @@
   font-weight: 800;
 }
 
+.calendar-header button:disabled {
+  background: #f1f5f9;
+  color: #b7c0d1;
+  cursor: not-allowed;
+}
+
 .calendar-weekdays,
 .calendar-grid {
   display: grid;

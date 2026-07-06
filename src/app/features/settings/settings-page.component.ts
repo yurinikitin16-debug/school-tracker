@@ -7,12 +7,10 @@ import { UiEmptyStateComponent } from '../../shared/ui/empty-state/ui-empty-stat
 import { UiIconComponent } from '../../shared/ui/icon/ui-icon.component';
 import { UiInputComponent } from '../../shared/ui/input/ui-input.component';
 import { UiPageHeaderComponent } from '../../shared/ui/page-header/ui-page-header.component';
-import { UiSelectComponent, UiSelectOption } from '../../shared/ui/select/ui-select.component';
 import { UiSidePanelComponent } from '../../shared/ui/side-panel/ui-side-panel.component';
 import { UiToolbarComponent } from '../../shared/ui/toolbar/ui-toolbar.component';
 import { AcademicCalendarSettingsComponent } from './academic-calendar-settings.component';
 
-type ReasonFilter = 'active' | 'all';
 type SettingsSection = 'reasons' | 'calendar';
 
 @Component({
@@ -24,7 +22,6 @@ type SettingsSection = 'reasons' | 'calendar';
     UiIconComponent,
     UiInputComponent,
     UiPageHeaderComponent,
-    UiSelectComponent,
     UiSidePanelComponent,
     UiToolbarComponent,
     AcademicCalendarSettingsComponent,
@@ -38,24 +35,17 @@ export class SettingsPageComponent {
   readonly activeSection = signal<SettingsSection>('reasons');
   readonly reasons = signal<AttendanceReason[]>([]);
   readonly searchTerm = signal('');
-  readonly selectedFilter = signal<ReasonFilter>('active');
   readonly selectedReasonId = signal<number | null>(null);
   readonly draftCode = signal('');
   readonly draftName = signal('');
   readonly draftIsActive = signal(true);
 
-  readonly filterOptions: UiSelectOption[] = [
-    { label: 'Активні', value: 'active' },
-    { label: 'Усі причини', value: 'all' },
-  ];
-
   readonly visibleReasons = computed(() => {
     const query = this.searchTerm().trim().toLowerCase();
 
     return this.reasons().filter((reason) => {
-      const filterMatches = this.selectedFilter() === 'all' || reason.isActive;
       const queryMatches = !query || `${reason.code} ${reason.name}`.toLowerCase().includes(query);
-      return filterMatches && queryMatches;
+      return reason.isActive && queryMatches;
     });
   });
 
@@ -71,10 +61,6 @@ export class SettingsPageComponent {
   selectSection(section: SettingsSection): void {
     this.activeSection.set(section);
     this.closePanel();
-  }
-
-  updateFilter(value: string): void {
-    this.selectedFilter.set(value as ReasonFilter);
   }
 
   openCreate(): void {
@@ -99,7 +85,7 @@ export class SettingsPageComponent {
   }
 
   saveReason(): void {
-    const code = this.draftCode().trim().toUpperCase();
+    const code = this.draftCode().trim();
     const name = this.draftName().trim();
     const selectedReasonId = this.selectedReasonId();
 
@@ -126,5 +112,17 @@ export class SettingsPageComponent {
     this.reasons.update((reasons) => reasons.map((item) => (
       item.id === reason.id ? { ...item, isActive: !item.isActive } : item
     )));
+  }
+
+  reasonCodeTone(code: string): 'absent' | 'excused' | 'sick' {
+    if (code === 'п/п') {
+      return 'excused';
+    }
+
+    if (code === 'хв') {
+      return 'sick';
+    }
+
+    return 'absent';
   }
 }

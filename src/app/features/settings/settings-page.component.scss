@@ -62,6 +62,7 @@
 .settings-content {
   display: grid;
   align-content: start;
+  justify-items: center;
   gap: 16px;
   min-width: 0;
   padding: 20px;
@@ -72,6 +73,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  width: min(760px, 100%);
 }
 
 h2,
@@ -93,11 +95,13 @@ p {
 .reasons-card {
   display: grid;
   gap: 14px;
+  width: min(760px, 100%);
   min-width: 0;
+  padding: 0;
 }
 
 .reason-search {
-  min-width: 260px;
+  min-width: 220px;
   flex: 1;
 }
 
@@ -113,7 +117,6 @@ p {
 
 table {
   width: 100%;
-  min-width: 620px;
   border-collapse: collapse;
 }
 
@@ -134,7 +137,7 @@ th {
 
 th:last-child,
 td:last-child {
-  width: 48px;
+  width: 86px;
   text-align: center;
 }
 
@@ -142,11 +145,32 @@ tr:last-child td {
   border-bottom: 0;
 }
 
-code {
-  color: var(--color-primary);
-  font-family: inherit;
+.reason-code {
+  display: inline-grid;
+  min-width: 48px;
+  min-height: 24px;
+  place-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.reason-code--absent {
+  background: #f43f5e;
+  color: #ffffff;
+}
+
+.reason-code--excused {
+  background: #4b7dff;
+  color: #ffffff;
+}
+
+.reason-code--sick {
+  background: #ffbe3d;
+  color: #6b3500;
 }
 
 .reason-switch {
@@ -275,6 +299,7 @@ code {
   }
 
   .settings-content {
+    justify-items: stretch;
     padding: 0;
   }
 

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { UiIconComponent } from '../icon/ui-icon.component';
 
 @Component({
@@ -22,8 +22,22 @@ import { UiIconComponent } from '../icon/ui-icon.component';
   `,
   styleUrl: './ui-side-panel.component.scss',
 })
-export class UiSidePanelComponent {
+export class UiSidePanelComponent implements OnChanges {
+  private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
   @Input() open = false;
   @Input() title = '';
   @Output() closed = new EventEmitter<void>();
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open']?.currentValue === true) {
+      setTimeout(() => this.focusAutofocusControl());
+    }
+  }
+
+  private focusAutofocusControl(): void {
+    this.elementRef.nativeElement
+      .querySelector<HTMLElement>('[data-autofocus]')
+      ?.focus();
+  }
 }

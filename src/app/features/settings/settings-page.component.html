@@ -19,9 +19,8 @@
       <header class="settings-content__header">
         <div>
           <h2>Причини відсутності</h2>
-          <p>Використовуються для деталізації пропусків учнів.</p>
+          <p>Перелік відміток для визначення відсутності у журналі.</p>
         </div>
-        <button class="primary-button" type="button" (click)="openCreate()">Додати причину</button>
       </header>
 
       <article class="reasons-card">
@@ -33,13 +32,6 @@
             [value]="searchTerm()"
             (valueChange)="searchTerm.set($event)"
           />
-          <ui-select
-            class="reason-filter"
-            ariaLabel="Статус причини"
-            [options]="filterOptions"
-            [value]="selectedFilter()"
-            (valueChange)="updateFilter($event)"
-          />
         </ui-toolbar>
 
         @if (visibleReasons().length) {
@@ -47,33 +39,18 @@
             <table>
               <thead>
                 <tr>
-                  <th>Код</th>
                   <th>Назва</th>
-                  <th>Статус</th>
-                  <th></th>
+                  <th>Код</th>
                 </tr>
               </thead>
               <tbody>
                 @for (reason of visibleReasons(); track reason.id) {
                   <tr>
-                    <td><code>{{ reason.code }}</code></td>
                     <td><strong>{{ reason.name }}</strong></td>
                     <td>
-                      <button
-                        class="reason-switch"
-                        [class.reason-switch--active]="reason.isActive"
-                        type="button"
-                        [attr.aria-label]="reason.isActive ? 'Деактивувати причину' : 'Активувати причину'"
-                        (click)="toggleReason(reason)"
-                      >
-                        <span></span>
-                        {{ reason.isActive ? 'Активна' : 'Неактивна' }}
-                      </button>
-                    </td>
-                    <td>
-                      <button class="reason-edit" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEdit(reason)">
-                        <ui-icon name="pencil" />
-                      </button>
+                      <span class="reason-code" [ngClass]="'reason-code--' + reasonCodeTone(reason.code)">
+                        {{ reason.code }}
+                      </span>
                     </td>
                   </tr>
                 }

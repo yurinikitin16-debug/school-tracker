@@ -1,16 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, HostListener, inject, signal } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { catchError, of } from 'rxjs';
 import {
   AcademicCalendarException,
-  AttendanceExceptionStatus,
   AttendanceRecord,
   AttendanceViewStatus,
   Student,
   StudentMeal,
 } from '../../core/models/school.models';
 import { SchoolDataService } from '../../core/services/school-data.service';
+import { AcademicYearService } from '../../core/services/academic-year.service';
+import { ClassDto, ClassesApiService } from '../../core/services/classes-api.service';
+import { StudentDto, StudentsApiService } from '../../core/services/students-api.service';
 import { UiDatePickerComponent } from '../../shared/ui/date-picker/ui-date-picker.component';
 import { UiEmptyStateComponent } from '../../shared/ui/empty-state/ui-empty-state.component';
 import { UiConfirmDialogComponent } from '../../shared/ui/confirm-dialog/ui-confirm-dialog.component';
@@ -19,7 +21,6 @@ import { UiInputComponent } from '../../shared/ui/input/ui-input.component';
 import { UiPageHeaderComponent } from '../../shared/ui/page-header/ui-page-header.component';
 import { UiSelectComponent, UiSelectOption } from '../../shared/ui/select/ui-select.component';
 import { UiSidePanelComponent } from '../../shared/ui/side-panel/ui-side-panel.component';
-import { UiStatCardComponent } from '../../shared/ui/stat-card/ui-stat-card.component';
 import { UiToolbarComponent } from '../../shared/ui/toolbar/ui-toolbar.component';
 
 interface AttendanceRow {
@@ -73,7 +74,6 @@ interface AttendanceEmptyState {
     UiPageHeaderComponent,
     UiSelectComponent,
     UiSidePanelComponent,
-    UiStatCardComponent,
     UiToolbarComponent,
   ],
   templateUrl: './attendance-page.component.html',
@@ -81,6 +81,9 @@ interface AttendanceEmptyState {
 })
 export class AttendancePageComponent {
   private readonly schoolData = inject(SchoolDataService);
+  private readonly academicYear = inject(AcademicYearService);
+  private readonly classesApi = inject(ClassesApiService);
+  private readonly studentsApi = inject(StudentsApiService);
 
   readonly weekdays: Weekday[] = [
     { id: 1, label: 'Понеділок' },
@@ -89,14 +92,16 @@ export class AttendancePageComponent {
     { id: 4, label: 'Четвер' },
     { id: 5, label: 'Пʼятниця' },
   ];
+  readonly classes = signal<ClassDto[]>([]);
   readonly students = signal<Student[]>([]);
   readonly attendance = signal<AttendanceRecord[]>([]);
   readonly savedAttendance = signal<AttendanceRecord[]>([]);
   readonly meals = signal<StudentMeal[]>([]);
   readonly savedMeals = signal<StudentMeal[]>([]);
   readonly calendarExceptions = signal<AcademicCalendarException[]>([]);
-  readonly tableMode = signal<TableMode>('attendance');
+  readonly tableMode = signal<TableMode>('combined');
 
+  readonly selectedClassId = signal<number | null>(null);
   readonly selectedClass = signal('8-А');
   readonly selectedStatus = signal<StatusFilter>('all');
   readonly searchTerm = signal('');
@@ -105,14 +110,14 @@ export class AttendancePageComponent {
   readonly cellEditorPosition = signal<FloatingEditorPosition | null>(null);
   readonly inlineStatus = signal<AttendanceViewStatus>('present');
   readonly inlineReason = signal('');
-  readonly inlineComment = signal('');
   readonly draftStatus = signal<AttendanceViewStatus>('present');
   readonly draftReason = signal('');
-  readonly draftComment = signal('');
   readonly draftFullWeekAbsent = signal(false);
   readonly saveNotice = signal('');
   readonly confirmationAction = signal<ConfirmationAction | null>(null);
   readonly attendanceDate = signal(this.resolveAttendanceDate(new Date()));
+  readonly academicYearStart = computed(() => this.academicYear.currentAcademicYear()?.startsOn ?? '');
+  readonly academicYearEnd = computed(() => this.academicYear.currentAcademicYear()?.endsOn ?? '');
   readonly weekRange = computed(() => this.resolveWeekRange(this.attendanceDate()));
   readonly dateLabel = computed(() => this.formatWeekRange(this.weekRange().start, this.weekRange().end, false));
   readonly headerDateLabel = computed(() => this.formatWeekRange(this.weekRange().start, this.weekRange().end, true));
@@ -151,47 +156,38 @@ export class AttendancePageComponent {
   readonly confirmationLabel = computed(() =>
     this.confirmationAction() === 'save' ? 'Зберегти' : 'Скасувати зміни',
   );
+  readonly selectedClassValue = computed(() => this.selectedClassId()?.toString() ?? '');
 
   readonly classOptions = computed<UiSelectOption[]>(() =>
-    [...new Set(this.students().map((student) => student.className))].map((className) => ({
-      label: className,
-      value: className,
-    })),
+    this.classes()
+      .filter((schoolClass) => schoolClass.isActive)
+      .sort((a, b) => this.compareClassNames(a.name, b.name))
+      .map((schoolClass) => ({
+        label: schoolClass.name,
+        value: schoolClass.id.toString(),
+      })),
   );
 
   readonly statusOptions: UiSelectOption[] = [
     { label: 'Усі статуси', value: 'all' },
     { label: 'Відсутні', value: 'A' },
-    { label: 'Хворіє', value: 'S' },
-    { label: 'Звільнені', value: 'E' },
   ];
 
   readonly tableModeOptions: { label: string; value: TableMode }[] = [
-    { label: 'Неявки', value: 'attendance' },
-    { label: 'Харчування', value: 'meals' },
     { label: 'Разом', value: 'combined' },
+    { label: 'Пропуски', value: 'attendance' },
+    { label: 'Харчування', value: 'meals' },
   ];
 
   readonly editStatusOptions: UiSelectOption[] = [
     { label: 'Присутній', value: 'present' },
     { label: 'Відсутній', value: 'A' },
-    { label: 'Хворіє', value: 'S' },
-    { label: 'Звільнений', value: 'E' },
-  ];
-
-  readonly allDayStatusOptions: UiSelectOption[] = [
-    { label: 'Відсутній', value: 'A' },
-    { label: 'Хворіє', value: 'S' },
-    { label: 'Звільнений', value: 'E' },
   ];
 
   readonly reasonOptions: UiSelectOption[] = [
-    { label: 'Не вказано', value: '' },
-    { label: 'Сімейні обставини', value: 'Сімейні обставини' },
-    { label: 'Хвороба', value: 'Хвороба' },
-    { label: 'Олімпіада', value: 'Олімпіада' },
-    { label: 'Медична довідка', value: 'Медична довідка' },
-    { label: 'Особисті справи', value: 'Особисті справи' },
+    { label: 'Без причини · Н', value: 'Без причини' },
+    { label: 'Поважна причина · п/п', value: 'Поважна причина' },
+    { label: 'Хворий · хв', value: 'Хворий' },
   ];
 
   readonly selectedStudent = computed(() => {
@@ -266,7 +262,7 @@ export class AttendancePageComponent {
         const searchMatches = !query || fullName.includes(query);
         const statusMatches =
           selectedStatus === 'all' ||
-          this.visibleSchoolDays().some((day) => this.statusFor(row, day.id) === selectedStatus);
+          this.visibleSchoolDays().some((day) => this.statusFor(row, day.id) !== 'present');
 
         return searchMatches && statusMatches;
       });
@@ -301,25 +297,29 @@ export class AttendancePageComponent {
     }
 
     const studentsWithoutMeal = students.filter((student) =>
-      days.some((day) => !this.mealFor(student.id, this.toIsoDate(day.date))?.hadMeal),
+      days.some((day) => this.hasMissedMeal(student.id, this.toIsoDate(day.date))),
     ).length;
 
     return { studentsWithoutMeal };
   });
 
   constructor() {
-    forkJoin({
-      students: this.schoolData.getStudents(),
-      attendance: this.schoolData.getAttendance(),
-      meals: this.schoolData.getStudentMeals(),
-    }).subscribe(({ students, attendance, meals }) => {
-      this.students.set(students);
-      const weeklyAttendance = this.normalizeAttendanceToWeekdays(attendance);
-      this.attendance.set(weeklyAttendance);
-      this.savedAttendance.set(weeklyAttendance.map((record) => ({ ...record })));
-      this.meals.set(meals.map((meal) => ({ ...meal })));
-      this.savedMeals.set(meals.map((meal) => ({ ...meal })));
-      this.selectedClass.set(students[0]?.className ?? '');
+    effect(() => {
+      this.academicYearStart();
+      this.academicYearEnd();
+
+      const boundedDate = this.boundAttendanceDate(this.attendanceDate());
+      if (this.toIsoDate(boundedDate) !== this.toIsoDate(this.attendanceDate())) {
+        this.attendanceDate.set(boundedDate);
+      }
+    });
+
+    effect(() => {
+      const academicYearId = this.academicYear.currentYearId();
+
+      if (academicYearId) {
+        this.loadClasses(academicYearId);
+      }
     });
 
     this.schoolData.getAcademicCalendarExceptions().subscribe((calendarExceptions) => {
@@ -332,12 +332,36 @@ export class AttendancePageComponent {
     return row.records.get(lessonId)?.status ?? 'present';
   }
 
+  attendanceTone(row: AttendanceRow, lessonId: number): AttendanceViewStatus {
+    const record = row.records.get(lessonId);
+
+    if (!record) {
+      return 'present';
+    }
+
+    const reasonTone: Record<string, AttendanceViewStatus> = {
+      'Без причини': 'A',
+      'Хворий': 'S',
+      'Поважна причина': 'E',
+    };
+
+    return record.reason ? reasonTone[record.reason] ?? record.status : record.status;
+  }
+
   recordFor(studentId: number, lessonId: number): AttendanceRecord | undefined {
     return this.attendance().find((record) => record.studentId === studentId && record.lessonId === lessonId);
   }
 
   mealFor(studentId: number, date: string): StudentMeal | undefined {
     return this.meals().find((meal) => meal.studentId === studentId && meal.date === date);
+  }
+
+  hasMissedMeal(studentId: number, date: string): boolean {
+    return this.mealFor(studentId, date)?.hadMeal === false;
+  }
+
+  hasMeal(studentId: number, date: string): boolean {
+    return !this.hasMissedMeal(studentId, date);
   }
 
   isCellChanged(studentId: number, lessonId: number): boolean {
@@ -382,9 +406,9 @@ export class AttendancePageComponent {
   statusLabel(status: AttendanceViewStatus): string {
     const labels: Record<AttendanceViewStatus, string> = {
       present: 'Присутній',
-      A: 'Відсутній',
-      S: 'Хворіє',
-      E: 'Звільнений',
+      A: 'Без причини',
+      S: 'Хворий',
+      E: 'Поважна причина',
     };
 
     return labels[status];
@@ -393,9 +417,9 @@ export class AttendancePageComponent {
   statusMark(status: AttendanceViewStatus): string {
     const marks: Record<AttendanceViewStatus, string> = {
       present: '✓',
-      A: 'Відсутній',
-      S: 'Хворіє',
-      E: 'Звільнений',
+      A: 'Н',
+      S: 'хв',
+      E: 'п/п',
     };
 
     return marks[status];
@@ -407,14 +431,29 @@ export class AttendancePageComponent {
       return this.mealText(row, day);
     }
 
-    const record = row.records.get(lessonId);
-    const attendanceText = record ? record.reason || this.statusLabel(record.status) : this.statusMark('present');
+    const attendanceText = this.attendanceText(row, lessonId);
 
     if (day && this.tableMode() === 'combined') {
       return `${attendanceText} / ${this.mealText(row, day)}`;
     }
 
     return attendanceText;
+  }
+
+  attendanceText(row: AttendanceRow, lessonId: number): string {
+    const record = row.records.get(lessonId);
+
+    return record ? this.reasonCode(record.reason) || this.statusLabel(record.status) : this.statusMark('present');
+  }
+
+  reasonCode(reason?: string): string {
+    const codes: Record<string, string> = {
+      'Без причини': 'Н',
+      'Поважна причина': 'п/п',
+      'Хворий': 'хв',
+    };
+
+    return reason ? codes[reason] ?? reason : '';
   }
 
   mealText(row: AttendanceRow, day: WeekdayColumn): string {
@@ -426,7 +465,15 @@ export class AttendancePageComponent {
       return 'Не був';
     }
 
-    return this.mealFor(row.student.id, this.toIsoDate(day.date))?.hadMeal ? 'Харчувався' : 'Не харчувався';
+    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Харчувався' : 'Не харчувався';
+  }
+
+  mealShortText(row: AttendanceRow, day: WeekdayColumn): string {
+    if (!day.isSchoolDay || this.statusFor(row, day.id) !== 'present') {
+      return '—';
+    }
+
+    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Їв' : 'Не їв';
   }
 
   updateTableMode(mode: TableMode): void {
@@ -443,12 +490,12 @@ export class AttendancePageComponent {
     const current = this.mealFor(row.student.id, date);
     const withoutCurrent = this.meals().filter((meal) => meal.studentId !== row.student.id || meal.date !== date);
 
-    if (current?.hadMeal) {
+    if (current?.hadMeal === false) {
       this.meals.set(withoutCurrent);
       return;
     }
 
-    this.meals.set([...withoutCurrent, { studentId: row.student.id, date, hadMeal: true }]);
+    this.meals.set([...withoutCurrent, { studentId: row.student.id, date, hadMeal: false }]);
   }
 
   handleCellClick(row: AttendanceRow, day: WeekdayColumn, event: MouseEvent): void {
@@ -468,8 +515,41 @@ export class AttendancePageComponent {
     return this.rows().filter((row) => row.records.has(dayId)).length;
   }
 
+  studentMissedMealCount(row: AttendanceRow): number {
+    return this.visibleSchoolDays()
+      .filter((day) => this.didNotEat(row, day))
+      .length;
+  }
+
+  dayMissedMealCount(day: WeekdayColumn): number {
+    if (!day.isSchoolDay) {
+      return 0;
+    }
+
+    return this.rows().filter((row) => this.didNotEat(row, day)).length;
+  }
+
+  totalMissedMealCount(): number {
+    return this.visibleSchoolDays().reduce((total, day) => total + this.dayMissedMealCount(day), 0);
+  }
+
+  didNotEat(row: AttendanceRow, day: WeekdayColumn): boolean {
+    if (!day.isSchoolDay) {
+      return false;
+    }
+
+    return row.records.has(day.id) || this.hasMissedMeal(row.student.id, this.toIsoDate(day.date));
+  }
+
   updateClass(value: string): void {
-    this.selectedClass.set(value);
+    const classId = Number(value);
+    const schoolClass = this.classes().find((item) => item.id === classId);
+
+    if (!schoolClass) {
+      return;
+    }
+
+    this.selectClass(schoolClass);
   }
 
   updateStatus(value: string): void {
@@ -485,9 +565,8 @@ export class AttendancePageComponent {
 
     this.editingCell.set({ studentId: row.student.id, lessonId: day.id });
     this.cellEditorPosition.set(this.resolveFloatingEditorPosition(event));
-    this.inlineStatus.set(record?.status ?? 'present');
-    this.inlineReason.set(record?.reason ?? '');
-    this.inlineComment.set(record?.comment ?? '');
+    this.inlineStatus.set(record ? 'A' : 'present');
+    this.inlineReason.set(record?.reason ?? 'Без причини');
   }
 
   isEditingCell(studentId: number, lessonId: number): boolean {
@@ -500,28 +579,19 @@ export class AttendancePageComponent {
     this.cellEditorPosition.set(null);
     this.inlineStatus.set('present');
     this.inlineReason.set('');
-    this.inlineComment.set('');
   }
 
   updateInlineStatus(value: string): void {
     const status = value as AttendanceViewStatus;
     this.inlineStatus.set(status);
-
-    if (status !== 'A') {
-      this.inlineReason.set('');
-      this.inlineComment.set('');
+    if (status === 'A' && !this.inlineReason()) {
+      this.inlineReason.set('Без причини');
     }
-
     this.applyInlineChanges();
   }
 
   updateInlineReason(value: string): void {
-    this.inlineReason.set(value);
-    this.applyInlineChanges();
-  }
-
-  updateInlineComment(value: string): void {
-    this.inlineComment.set(value);
+    this.inlineReason.set(value || 'Без причини');
     this.applyInlineChanges();
   }
 
@@ -540,9 +610,8 @@ export class AttendancePageComponent {
 
     this.selectedCell.set({ studentId: row.student.id, lessonId: days[0].id });
     this.draftFullWeekAbsent.set(isAbsentAllWeek);
-    this.draftStatus.set(firstRecord?.status ?? 'A');
-    this.draftReason.set(firstRecord?.reason ?? '');
-    this.draftComment.set(firstRecord?.comment ?? '');
+    this.draftStatus.set('A');
+    this.draftReason.set(firstRecord?.reason ?? 'Без причини');
   }
 
   updateDraftFullWeekAbsent(isAbsentFullWeek: boolean): void {
@@ -565,8 +634,7 @@ export class AttendancePageComponent {
       ),
     );
     this.draftStatus.set('A');
-    this.draftReason.set('');
-    this.draftComment.set('');
+    this.draftReason.set('Без причини');
   }
 
   openAttendanceEditor(row: AttendanceRow, day: WeekdayColumn): void {
@@ -580,16 +648,14 @@ export class AttendancePageComponent {
       studentId: row.student.id,
       lessonId: day.id,
     });
-    this.draftStatus.set(record?.status ?? 'present');
-    this.draftReason.set(record?.reason ?? '');
-    this.draftComment.set(record?.comment ?? '');
+    this.draftStatus.set(record ? 'A' : 'present');
+    this.draftReason.set(record?.reason ?? 'Без причини');
   }
 
   closeAttendanceEditor(): void {
     this.selectedCell.set(null);
     this.draftStatus.set('present');
     this.draftReason.set('');
-    this.draftComment.set('');
     this.draftFullWeekAbsent.set(false);
   }
 
@@ -597,10 +663,8 @@ export class AttendancePageComponent {
     const status = value as AttendanceViewStatus;
 
     this.draftStatus.set(status);
-
-    if (status !== 'A') {
-      this.draftReason.set('');
-      this.draftComment.set('');
+    if (status === 'A' && !this.draftReason()) {
+      this.draftReason.set('Без причини');
     }
   }
 
@@ -628,13 +692,11 @@ export class AttendancePageComponent {
       (record) => record.studentId !== cell.studentId || !dayIds.has(record.lessonId),
     );
     this.meals.set(this.meals().filter((meal) => meal.studentId !== cell.studentId || !dates.has(meal.date)));
-    const status = this.draftStatus() as AttendanceExceptionStatus;
     const allDayRecords = days.map<AttendanceRecord>((day) => ({
       studentId: cell.studentId,
       lessonId: day.id,
-      status,
-      reason: status === 'A' ? this.draftReason() || undefined : undefined,
-      comment: status === 'A' ? this.draftComment().trim() || undefined : undefined,
+      status: 'A',
+      reason: this.draftReason() || 'Без причини',
     }));
 
     this.attendance.set([...withoutStudentDays, ...allDayRecords]);
@@ -717,9 +779,8 @@ export class AttendancePageComponent {
       {
         studentId: cell.studentId,
         lessonId: cell.lessonId,
-        status: status as AttendanceExceptionStatus,
-        reason: status === 'A' ? this.inlineReason() || undefined : undefined,
-        comment: status === 'A' ? this.inlineComment().trim() || undefined : undefined,
+        status: 'A',
+        reason: this.inlineReason() || 'Без причини',
       },
     ]);
   }
@@ -763,18 +824,37 @@ export class AttendancePageComponent {
   }
 
   updateAttendanceDate(date: Date): void {
-    this.attendanceDate.set(this.resolveAttendanceDate(date));
+    this.attendanceDate.set(this.boundAttendanceDate(date));
   }
 
   moveAttendanceDate(direction: -1 | 1): void {
+    if (!this.canMoveAttendanceDate(direction)) {
+      return;
+    }
+
     const nextDate = new Date(this.attendanceDate());
     nextDate.setDate(nextDate.getDate() + direction * 7);
 
-    this.attendanceDate.set(nextDate);
+    this.attendanceDate.set(this.boundAttendanceDate(nextDate));
   }
 
   goToToday(): void {
-    this.attendanceDate.set(this.resolveAttendanceDate(new Date()));
+    if (!this.canGoToCurrentWeek()) {
+      return;
+    }
+
+    this.attendanceDate.set(this.boundAttendanceDate(new Date()));
+  }
+
+  canMoveAttendanceDate(direction: -1 | 1): boolean {
+    const nextDate = new Date(this.attendanceDate());
+    nextDate.setDate(nextDate.getDate() + direction * 7);
+
+    return this.isDateWithinAcademicYear(this.resolveAttendanceDate(nextDate));
+  }
+
+  canGoToCurrentWeek(): boolean {
+    return this.isDateWithinAcademicYear(this.resolveAttendanceDate(new Date()));
   }
 
   @HostListener('document:click', ['$event'])
@@ -796,6 +876,7 @@ export class AttendancePageComponent {
 
   private resolveAttendanceDate(date: Date): Date {
     const resolved = new Date(date);
+    resolved.setHours(0, 0, 0, 0);
     const day = resolved.getDay();
 
     if (day === 0) {
@@ -804,6 +885,37 @@ export class AttendancePageComponent {
 
     if (day === 6) {
       resolved.setDate(resolved.getDate() - 1);
+    }
+
+    return resolved;
+  }
+
+  private boundAttendanceDate(date: Date): Date {
+    const resolved = this.resolveAttendanceDate(date);
+    const start = this.parseIsoDate(this.academicYearStart());
+    const end = this.parseIsoDate(this.academicYearEnd());
+
+    if (start && resolved < start) {
+      return this.firstWeekdayOnOrAfter(start);
+    }
+
+    if (end && resolved > end) {
+      return this.resolveAttendanceDate(end);
+    }
+
+    return resolved;
+  }
+
+  private firstWeekdayOnOrAfter(date: Date): Date {
+    const resolved = new Date(date);
+    resolved.setHours(0, 0, 0, 0);
+
+    if (resolved.getDay() === 6) {
+      resolved.setDate(resolved.getDate() + 2);
+    }
+
+    if (resolved.getDay() === 0) {
+      resolved.setDate(resolved.getDate() + 1);
     }
 
     return resolved;
@@ -847,10 +959,34 @@ export class AttendancePageComponent {
     const isoDate = this.toIsoDate(date);
     const exception = this.calendarExceptions().find((item) => item.date === isoDate);
 
+    if (!this.isDateWithinAcademicYear(date)) {
+      return {
+        isSchoolDay: false,
+        note: 'Поза навчальним роком',
+      };
+    }
+
     return {
       isSchoolDay: exception?.isSchoolDay ?? true,
       note: exception?.note,
     };
+  }
+
+  private isDateWithinAcademicYear(date: Date): boolean {
+    const start = this.parseIsoDate(this.academicYearStart());
+    const end = this.parseIsoDate(this.academicYearEnd());
+    const normalized = new Date(date);
+    normalized.setHours(0, 0, 0, 0);
+
+    if (start && normalized < start) {
+      return false;
+    }
+
+    if (end && normalized > end) {
+      return false;
+    }
+
+    return true;
   }
 
   private recordsMatch(first?: AttendanceRecord, second?: AttendanceRecord): boolean {
@@ -877,8 +1013,86 @@ export class AttendancePageComponent {
       .filter((record) => record.lessonId >= 1 && record.lessonId <= 5);
   }
 
+  private loadClasses(academicYearId: number): void {
+    this.classesApi
+      .getClasses(academicYearId)
+      .pipe(catchError(() => of([])))
+      .subscribe((classes) => {
+        const activeClasses = classes.filter((schoolClass) => schoolClass.isActive);
+
+        this.classes.set(classes);
+
+        const currentClass = activeClasses.find((schoolClass) => schoolClass.id === this.selectedClassId());
+        const latestClass = this.findLatestClass(activeClasses);
+        const nextClass = currentClass ?? latestClass;
+
+        if (nextClass) {
+          this.selectClass(nextClass);
+          return;
+        }
+
+        this.selectedClassId.set(null);
+        this.selectedClass.set('');
+        this.students.set([]);
+      });
+  }
+
+  private selectClass(schoolClass: ClassDto): void {
+    this.selectedClassId.set(schoolClass.id);
+    this.selectedClass.set(schoolClass.name);
+    this.loadStudents(schoolClass);
+    this.closeCellEditor();
+    this.closeAttendanceEditor();
+  }
+
+  private loadStudents(schoolClass: ClassDto): void {
+    this.studentsApi
+      .getClassStudents(schoolClass.id)
+      .pipe(catchError(() => of([])))
+      .subscribe((students) => {
+        this.students.set(
+          students
+            .filter((student) => student.isActive)
+            .map((student) => this.mapStudent(student, schoolClass.name)),
+        );
+      });
+  }
+
+  private mapStudent(student: StudentDto, className: string): Student {
+    return {
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      className,
+      birthDate: '',
+      isActive: student.isActive,
+    };
+  }
+
+  private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
+    return [...classes].sort((a, b) => b.id - a.id)[0];
+  }
+
+  private compareClassNames(first: string, second: string): number {
+    return first.localeCompare(second, 'uk', { numeric: true, sensitivity: 'base' });
+  }
+
   toIsoDate(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private parseIsoDate(value: string): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const [year, month, day] = value.split('-').map(Number);
+
+    if (!year || !month || !day) {
+      return null;
+    }
+
+    return new Date(year, month - 1, day);
   }
 
 }
