@@ -248,6 +248,11 @@ th em {
   background: #f8fafc;
 }
 
+.cell--failed {
+  background: #fff1f3;
+  box-shadow: inset 0 0 0 2px #fb7185;
+}
+
 tr:last-child td {
   border-bottom: 0;
 }
@@ -527,6 +532,10 @@ tfoot td {
   cursor: not-allowed;
   opacity: 0.48;
   box-shadow: none;
+}
+
+.primary-button--loading:disabled {
+  opacity: 0.76;
 }
 
 .secondary-button {

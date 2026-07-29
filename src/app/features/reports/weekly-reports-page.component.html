@@ -6,7 +6,7 @@
       class="report-control report-control--class"
       ariaLabel="Клас"
       [options]="classOptions()"
-      [value]="selectedClass()"
+      [value]="selectedClassId()"
       (valueChange)="updateClass($event)"
     />
     <ui-select
@@ -49,7 +49,11 @@
         </div>
       </header>
 
-      @if (overviewDays().length && overviewRows().length) {
+      @if (isLoading()) {
+        <ui-empty-state title="Завантаження звіту" description="Підтягуємо відвідування та харчування за місяць." icon="database" />
+      } @else if (loadFailed()) {
+        <ui-empty-state title="Не всі дані завантажились" description="Частина тижнів недоступна. Спробуйте оновити сторінку." icon="database" />
+      } @else if (overviewDays().length && overviewRows().length) {
         <div class="report-table-wrap">
           <table class="overview-month-table">
             <thead>
@@ -114,6 +118,82 @@
       }
 
     </article>
+
+    <article class="report-table-card">
+      <header class="report-table-card__header">
+        <div>
+          <h2>Харчування за місяць</h2>
+          <p>Компактна матриця відміток харчування по учнях вибраного класу</p>
+        </div>
+      </header>
+
+      @if (isLoading()) {
+        <ui-empty-state title="Завантаження звіту" description="Підтягуємо відмітки харчування за місяць." icon="database" />
+      } @else if (loadFailed()) {
+        <ui-empty-state title="Не всі дані завантажились" description="Частина тижнів недоступна. Спробуйте оновити сторінку." icon="database" />
+      } @else if (overviewDays().length && overviewRows().length) {
+        <div class="report-table-wrap">
+          <table class="overview-month-table">
+            <thead>
+              <tr>
+                <th class="overview-month-table__number">№</th>
+                <th class="overview-month-table__student">Учень</th>
+                @for (day of overviewDays(); track day.date) {
+                  <th class="overview-month-table__day" [class.overview-month-table__week-start]="day.startsWeek">
+                    <strong>{{ day.dayLabel }}</strong>
+                    <small>{{ day.weekdayLabel }}</small>
+                  </th>
+                }
+                <th class="overview-month-table__total">Всього</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (student of overviewRows(); track student.id; let index = $index) {
+                <tr>
+                  <td class="overview-month-table__number">{{ index + 1 }}</td>
+                  <td class="overview-month-table__student">
+                    <strong>{{ student.lastName }} {{ student.firstName }}</strong>
+                  </td>
+                  @for (day of overviewDays(); track day.date) {
+                    @let cell = mealCell(student, day.date);
+                    <td [class.overview-month-table__week-start]="day.startsWeek">
+                      <span
+                        class="overview-mark"
+                        [class.overview-mark--present]="cell.tone === 'present'"
+                        [class.overview-mark--A]="cell.tone === 'A'"
+                        [attr.aria-label]="cell.label"
+                      >
+                        {{ cell.code }}
+                      </span>
+                    </td>
+                  }
+                  <td class="overview-month-table__total">
+                    <strong [class.report-number--danger]="mealStudentTotal(student) > 0">{{ mealStudentTotal(student) }}</strong>
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <th class="overview-month-table__number"></th>
+                <th class="overview-month-table__student">Всього</th>
+                @for (day of overviewDays(); track day.date) {
+                  <td [class.overview-month-table__week-start]="day.startsWeek">
+                    <strong [class.report-number--danger]="mealDayTotal(day.date) > 0">{{ mealDayTotal(day.date) }}</strong>
+                  </td>
+                }
+                <td class="overview-month-table__total">
+                  <strong [class.report-number--danger]="mealGrandTotal() > 0">{{ mealGrandTotal() }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      } @else {
+        <ui-empty-state title="Даних немає" description="Оберіть інший клас або змініть пошук." icon="chart" />
+      }
+
+    </article>
   } @else if (selectedView() === 'students') {
     <ui-toolbar class="student-report-toolbar">
       <ui-select
@@ -138,7 +218,7 @@
           <thead>
             <tr>
               <th>Учень</th>
-              @if (selectedClass() === 'all') {
+              @if (selectedClassId() === 'all') {
                 <th>Клас</th>
               }
               <th>Днів неявки</th>
@@ -148,7 +228,7 @@
             @for (row of studentRows(); track row.student.id) {
               <tr>
                 <td><strong>{{ row.student.lastName }} {{ row.student.firstName }}</strong></td>
-                @if (selectedClass() === 'all') {
+                @if (selectedClassId() === 'all') {
                   <td>{{ row.student.className }}</td>
                 }
                 <td>
@@ -181,7 +261,7 @@
           <thead>
             <tr>
               <th>Учень</th>
-              @if (selectedClass() === 'all') {
+              @if (selectedClassId() === 'all') {
                 <th>Клас</th>
               }
               <th>Харчувався днів</th>
@@ -192,7 +272,7 @@
             @for (row of mealRows(); track row.student.id) {
               <tr>
                 <td><strong>{{ row.student.lastName }} {{ row.student.firstName }}</strong></td>
-                @if (selectedClass() === 'all') {
+                @if (selectedClassId() === 'all') {
                   <td>{{ row.student.className }}</td>
                 }
                 <td><strong class="report-number--success">{{ row.mealDays }}</strong></td>
@@ -260,29 +340,6 @@
       Експорт в Excel
     </button>
   </section>
-
-  @if (selectedStudentList(); as selection) {
-    <button class="absent-modal__backdrop" type="button" aria-label="Закрити" (click)="closeStudentList()"></button>
-    <section class="absent-modal" role="dialog" aria-modal="true" aria-label="Учні з неявкою">
-      <header>
-        <div>
-          <h2>Учні з неявкою</h2>
-          <p>{{ formatDate(selection.day.date) }}</p>
-        </div>
-        <button class="absent-modal__close" type="button" aria-label="Закрити" (click)="closeStudentList()">
-          <ui-icon name="x" />
-        </button>
-      </header>
-      <ul>
-        @for (student of selectedStudents(); track student.id) {
-          <li>
-            <strong>{{ student.lastName }} {{ student.firstName }}</strong>
-            <span>{{ student.className }}</span>
-          </li>
-        }
-      </ul>
-    </section>
-  }
 
   @if (selectedClassReport(); as row) {
     <button class="absent-modal__backdrop" type="button" aria-label="Закрити" (click)="closeClassReport()"></button>

@@ -24,6 +24,13 @@
   color: #b91c3c;
 }
 
+.toast--success {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  box-shadow: 0 18px 42px rgba(18, 134, 83, 0.14);
+  color: #128653;
+}
+
 @media (max-width: 760px) {
   :host {
     top: 12px;

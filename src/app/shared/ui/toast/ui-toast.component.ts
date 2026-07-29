@@ -6,7 +6,13 @@ import { ToastService } from '../../../core/services/toast.service';
   selector: 'ui-toast',
   template: `
     @if (toast.message(); as message) {
-      <aside class="toast" [class.toast--error]="message.tone === 'error'" role="status" aria-live="polite">
+      <aside
+        class="toast"
+        [class.toast--error]="message.tone === 'error'"
+        [class.toast--success]="message.tone === 'success'"
+        role="status"
+        aria-live="polite"
+      >
         {{ message.text }}
       </aside>
     }

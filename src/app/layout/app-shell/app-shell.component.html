@@ -27,7 +27,7 @@
     </a>
 
     <nav class="nav" aria-label="Розділи">
-      @for (item of navItems; track item.route) {
+      @for (item of navItems(); track item.route) {
         <a
           class="nav__link"
           [routerLink]="item.route"
@@ -39,39 +39,54 @@
         </a>
       }
 
-      <button
-        class="nav__link nav__link--button"
-        [class.nav__link--active]="isDirectoriesActive()"
-        type="button"
-        (click)="toggleDirectories()"
-      >
-        <ui-icon class="nav__icon" name="database" />
-        <span>Довідники</span>
-        <ui-icon class="nav__chevron" [class.nav__chevron--open]="isDirectoriesOpen()" name="chevron-down" />
-      </button>
+      @if (shouldShowDirectories()) {
+        <button
+          class="nav__link nav__link--button"
+          [class.nav__link--active]="isDirectoriesActive()"
+          type="button"
+          (click)="toggleDirectories()"
+        >
+          <ui-icon class="nav__icon" name="database" />
+          <span>Довідники</span>
+          <ui-icon class="nav__chevron" [class.nav__chevron--open]="isDirectoriesOpen()" name="chevron-down" />
+        </button>
 
-      @if (isDirectoriesOpen()) {
-        <div class="nav__group">
-          @for (item of directoryItems; track item.route) {
-            <a
-              class="nav__link nav__link--child"
-              [routerLink]="item.route"
-              routerLinkActive="nav__link--active"
-              [routerLinkActiveOptions]="{ exact: true }"
-            >
-              <ui-icon class="nav__icon" [name]="item.icon" />
-              <span>{{ item.label }}</span>
-            </a>
-          }
-        </div>
+        @if (isDirectoriesOpen()) {
+          <div class="nav__group">
+            @for (item of directoryItems(); track item.route) {
+              <a
+                class="nav__link nav__link--child"
+                [routerLink]="item.route"
+                routerLinkActive="nav__link--active"
+                [routerLinkActiveOptions]="{ exact: true }"
+              >
+                <ui-icon class="nav__icon" [name]="item.icon" />
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          </div>
+        }
       }
     </nav>
 
-    <div class="sidebar__academic-year">
-      <span>Навчальний рік</span>
-      <strong>{{ academicYear.currentYear() }}</strong>
-    </div>
+    <div class="sidebar__footer">
+      @if (auth.currentUser(); as user) {
+        <section class="sidebar__user" aria-label="Поточний користувач">
+          <div>
+            <span>{{ user.role === 'admin' ? 'Адміністратор' : 'Класний керівник' }}</span>
+            <strong>{{ user.fullName }}</strong>
+          </div>
+          <button class="sidebar__logout" type="button" aria-label="Вийти" (click)="logout()">
+            <ui-icon name="log-out" />
+          </button>
+        </section>
+      }
 
+      <div class="sidebar__academic-year">
+        <span>Навчальний рік</span>
+        <strong>{{ academicYear.currentYear() }}</strong>
+      </div>
+    </div>
   </aside>
 
   <main class="workspace">

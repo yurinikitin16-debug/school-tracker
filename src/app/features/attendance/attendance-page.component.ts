@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, of } from 'rxjs';
+import { catchError, finalize, of } from 'rxjs';
 import {
   AcademicCalendarException,
   AttendanceRecord,
@@ -11,8 +11,16 @@ import {
 } from '../../core/models/school.models';
 import { SchoolDataService } from '../../core/services/school-data.service';
 import { AcademicYearService } from '../../core/services/academic-year.service';
+import {
+  AttendanceApiService,
+  AttendanceApiStatus,
+  AttendanceWeekChangeDto,
+  AttendanceWeekDayDto,
+  AttendanceWeekMatrixDto,
+} from '../../core/services/attendance-api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ClassDto, ClassesApiService } from '../../core/services/classes-api.service';
-import { StudentDto, StudentsApiService } from '../../core/services/students-api.service';
+import { ToastService } from '../../core/services/toast.service';
 import { UiDatePickerComponent } from '../../shared/ui/date-picker/ui-date-picker.component';
 import { UiEmptyStateComponent } from '../../shared/ui/empty-state/ui-empty-state.component';
 import { UiConfirmDialogComponent } from '../../shared/ui/confirm-dialog/ui-confirm-dialog.component';
@@ -82,8 +90,10 @@ interface AttendanceEmptyState {
 export class AttendancePageComponent {
   private readonly schoolData = inject(SchoolDataService);
   private readonly academicYear = inject(AcademicYearService);
+  private readonly attendanceApi = inject(AttendanceApiService);
+  private readonly auth = inject(AuthService);
   private readonly classesApi = inject(ClassesApiService);
-  private readonly studentsApi = inject(StudentsApiService);
+  private readonly toast = inject(ToastService);
 
   readonly weekdays: Weekday[] = [
     { id: 1, label: 'Понеділок' },
@@ -99,6 +109,11 @@ export class AttendancePageComponent {
   readonly meals = signal<StudentMeal[]>([]);
   readonly savedMeals = signal<StudentMeal[]>([]);
   readonly calendarExceptions = signal<AcademicCalendarException[]>([]);
+  readonly matrixDays = signal<AttendanceWeekDayDto[]>([]);
+  readonly isMatrixLoading = signal(false);
+  readonly weekLoadFailed = signal(false);
+  readonly isSaving = signal(false);
+  readonly failedCellKeys = signal<Set<string>>(new Set());
   readonly tableMode = signal<TableMode>('combined');
 
   readonly selectedClassId = signal<number | null>(null);
@@ -157,6 +172,7 @@ export class AttendancePageComponent {
     this.confirmationAction() === 'save' ? 'Зберегти' : 'Скасувати зміни',
   );
   readonly selectedClassValue = computed(() => this.selectedClassId()?.toString() ?? '');
+  readonly hasSelectedClass = computed(() => this.selectedClassId() !== null);
 
   readonly classOptions = computed<UiSelectOption[]>(() =>
     this.classes()
@@ -167,6 +183,7 @@ export class AttendancePageComponent {
         value: schoolClass.id.toString(),
       })),
   );
+  readonly isClassSelectDisabled = computed(() => this.classOptions().length <= 1);
 
   readonly statusOptions: UiSelectOption[] = [
     { label: 'Усі статуси', value: 'all' },
@@ -196,6 +213,17 @@ export class AttendancePageComponent {
   });
 
   readonly visibleDays = computed<WeekdayColumn[]>(() => {
+    if (this.matrixDays().length) {
+      return this.matrixDays().map((day, index) => ({
+        id: index + 1,
+        label: this.weekdayLabel(day.weekday),
+        date: this.parseIsoDate(day.date) ?? new Date(day.date),
+        dateLabel: this.formatColumnDate(this.parseIsoDate(day.date) ?? new Date(day.date)),
+        isSchoolDay: day.isSchoolDay,
+        note: day.note ?? undefined,
+      }));
+    }
+
     const start = this.weekRange().start;
 
     return this.weekdays.map((weekday, index) => {
@@ -218,11 +246,47 @@ export class AttendancePageComponent {
   );
 
   readonly emptyState = computed<AttendanceEmptyState | null>(() => {
+    if (!this.hasSelectedClass() || !this.classOptions().length) {
+      const isClassTeacher = this.auth.currentUser()?.role === 'class_teacher';
+
+      return {
+        title: isClassTeacher ? 'До вас не закріплено клас' : 'Немає активних класів',
+        description: isClassTeacher
+          ? 'Зверніться до адміністратора, щоб отримати доступ до свого класу.'
+          : 'Додайте клас у довіднику, щоб вести відвідування.',
+        icon: 'database' as const,
+      };
+    }
+
+    if (this.isMatrixLoading() && !this.students().length) {
+      return {
+        title: 'Завантаження тижня',
+        description: 'Підтягуємо учнів, пропуски та харчування.',
+        icon: 'database' as const,
+      };
+    }
+
+    if (this.weekLoadFailed()) {
+      return {
+        title: 'Не вдалося завантажити тиждень',
+        description: 'Спробуйте змінити тиждень або оновити сторінку.',
+        icon: 'database' as const,
+      };
+    }
+
     if (!this.students().some((student) => student.className === this.selectedClass())) {
       return {
         title: 'У класі поки немає учнів',
         description: 'Додайте учнів у довіднику, щоб вести відвідування.',
         icon: 'users' as const,
+      };
+    }
+
+    if (!this.visibleSchoolDays().length) {
+      return {
+        title: 'У цьому тижні немає навчальних днів',
+        description: 'Виберіть інший тиждень або перевірте календар навчальних днів.',
+        icon: 'calendar' as const,
       };
     }
 
@@ -403,6 +467,14 @@ export class AttendancePageComponent {
     return attendanceChanged || mealChanged;
   }
 
+  isDisplayCellFailed(row: AttendanceRow, day: WeekdayColumn): boolean {
+    if (!day.isSchoolDay) {
+      return false;
+    }
+
+    return this.failedCellKeys().has(this.changeKey(row.student.id, this.toIsoDate(day.date)));
+  }
+
   statusLabel(status: AttendanceViewStatus): string {
     const labels: Record<AttendanceViewStatus, string> = {
       present: 'Присутній',
@@ -487,6 +559,7 @@ export class AttendancePageComponent {
     }
 
     const date = this.toIsoDate(day.date);
+    this.clearFailedCell(row.student.id, date);
     const current = this.mealFor(row.student.id, date);
     const withoutCurrent = this.meals().filter((meal) => meal.studentId !== row.student.id || meal.date !== date);
 
@@ -708,18 +781,56 @@ export class AttendancePageComponent {
   }
 
   saveChanges(): void {
-    this.savedAttendance.set(this.attendance().map((record) => ({ ...record })));
-    this.savedMeals.set(this.meals().map((meal) => ({ ...meal })));
-    this.saveNotice.set('Зміни збережено');
+    const classId = this.selectedClassId();
+    const changes = this.collectWeekChanges();
 
-    window.setTimeout(() => this.saveNotice.set(''), 3000);
+    if (!classId || !changes.length || this.isSaving()) {
+      return;
+    }
+
+    this.failedCellKeys.set(new Set());
+    this.isSaving.set(true);
+
+    this.attendanceApi.updateWeek({
+      classId,
+      weekStart: this.toIsoDate(this.weekRange().start),
+      changes,
+    }).pipe(
+      catchError(() => {
+        this.failedCellKeys.set(new Set(changes.map((change) => this.changeKey(change.studentId, change.date))));
+        this.saveNotice.set('Не вдалося зберегти зміни');
+        this.toast.showError('Не вдалося зберегти зміни');
+
+        return of(null);
+      }),
+      finalize(() => this.isSaving.set(false)),
+    ).subscribe((matrix) => {
+      if (!matrix) {
+        return;
+      }
+
+      this.applyWeekMatrix(matrix);
+      this.failedCellKeys.set(new Set());
+      this.saveNotice.set('Зміни збережено');
+      this.toast.showSuccess('Зміни збережено');
+
+      window.setTimeout(() => this.saveNotice.set(''), 3000);
+    });
   }
 
   requestSaveChanges(): void {
+    if (this.isSaving()) {
+      return;
+    }
+
     this.confirmationAction.set('save');
   }
 
   requestDiscardChanges(): void {
+    if (this.isSaving()) {
+      return;
+    }
+
     this.confirmationAction.set('discard');
   }
 
@@ -743,6 +854,7 @@ export class AttendancePageComponent {
   discardChanges(): void {
     this.attendance.set(this.savedAttendance().map((record) => ({ ...record })));
     this.meals.set(this.savedMeals().map((meal) => ({ ...meal })));
+    this.failedCellKeys.set(new Set());
     this.closeCellEditor();
     this.closeAttendanceEditor();
     this.saveNotice.set('Зміни скасовано');
@@ -758,6 +870,12 @@ export class AttendancePageComponent {
     }
 
     const status = this.inlineStatus();
+    const day = this.visibleDays().find((item) => item.id === cell.lessonId);
+
+    if (day) {
+      this.clearFailedCell(cell.studentId, this.toIsoDate(day.date));
+    }
+
     const withoutCurrent = this.attendance().filter(
       (record) => record.studentId !== cell.studentId || record.lessonId !== cell.lessonId,
     );
@@ -768,7 +886,6 @@ export class AttendancePageComponent {
       return;
     }
 
-    const day = this.visibleDays().find((item) => item.id === cell.lessonId);
     if (day) {
       const date = this.toIsoDate(day.date);
       this.meals.set(this.meals().filter((meal) => meal.studentId !== cell.studentId || meal.date !== date));
@@ -825,6 +942,7 @@ export class AttendancePageComponent {
 
   updateAttendanceDate(date: Date): void {
     this.attendanceDate.set(this.boundAttendanceDate(date));
+    this.loadSelectedWeek();
   }
 
   moveAttendanceDate(direction: -1 | 1): void {
@@ -836,6 +954,7 @@ export class AttendancePageComponent {
     nextDate.setDate(nextDate.getDate() + direction * 7);
 
     this.attendanceDate.set(this.boundAttendanceDate(nextDate));
+    this.loadSelectedWeek();
   }
 
   goToToday(): void {
@@ -844,6 +963,7 @@ export class AttendancePageComponent {
     }
 
     this.attendanceDate.set(this.boundAttendanceDate(new Date()));
+    this.loadSelectedWeek();
   }
 
   canMoveAttendanceDate(direction: -1 | 1): boolean {
@@ -1040,37 +1160,181 @@ export class AttendancePageComponent {
   private selectClass(schoolClass: ClassDto): void {
     this.selectedClassId.set(schoolClass.id);
     this.selectedClass.set(schoolClass.name);
-    this.loadStudents(schoolClass);
+    this.loadWeekMatrix(schoolClass.id);
     this.closeCellEditor();
     this.closeAttendanceEditor();
   }
 
-  private loadStudents(schoolClass: ClassDto): void {
-    this.studentsApi
-      .getClassStudents(schoolClass.id)
-      .pipe(catchError(() => of([])))
-      .subscribe((students) => {
-        this.students.set(
-          students
-            .filter((student) => student.isActive)
-            .map((student) => this.mapStudent(student, schoolClass.name)),
-        );
+  private loadSelectedWeek(): void {
+    const classId = this.selectedClassId();
+
+    if (classId) {
+      this.loadWeekMatrix(classId);
+    }
+  }
+
+  private loadWeekMatrix(classId: number): void {
+    this.isMatrixLoading.set(true);
+    this.weekLoadFailed.set(false);
+    this.failedCellKeys.set(new Set());
+
+    this.attendanceApi
+      .getWeek(classId, this.toIsoDate(this.weekRange().start))
+      .pipe(
+        catchError(() => {
+          this.weekLoadFailed.set(true);
+
+          return of(null);
+        }),
+        finalize(() => this.isMatrixLoading.set(false)),
+      )
+      .subscribe((matrix) => {
+        if (matrix) {
+          this.weekLoadFailed.set(false);
+          this.applyWeekMatrix(matrix);
+        } else {
+          this.students.set([]);
+          this.attendance.set([]);
+          this.savedAttendance.set([]);
+          this.meals.set([]);
+          this.savedMeals.set([]);
+          this.matrixDays.set([]);
+        }
       });
   }
 
-  private mapStudent(student: StudentDto, className: string): Student {
-    return {
+  private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
+    return [...classes].sort((a, b) => b.id - a.id)[0];
+  }
+
+  private applyWeekMatrix(matrix: AttendanceWeekMatrixDto): void {
+    const schoolClass = this.classes().find((item) => item.id === matrix.classId);
+    const className = schoolClass?.name ?? this.selectedClass();
+    const dateToDayId = new Map(matrix.days.map((day, index) => [day.date, index + 1]));
+    const nextStudents = matrix.students.map<Student>((student) => ({
       id: student.id,
       firstName: student.firstName,
       lastName: student.lastName,
       className,
       birthDate: '',
-      isActive: student.isActive,
-    };
+      isActive: true,
+    }));
+    const nextAttendance: AttendanceRecord[] = [];
+    const nextMeals: StudentMeal[] = [];
+
+    matrix.students.forEach((student) => {
+      Object.entries(student.days).forEach(([date, dayState]) => {
+        const lessonId = dateToDayId.get(date);
+
+        if (!lessonId) {
+          return;
+        }
+
+        if (dayState.attendance !== 'PRESENT') {
+          nextAttendance.push({
+            studentId: student.id,
+            lessonId,
+            status: 'A',
+            reason: this.apiStatusToReason(dayState.attendance),
+          });
+        }
+
+        if (!dayState.meal) {
+          nextMeals.push({
+            studentId: student.id,
+            date,
+            hadMeal: false,
+          });
+        }
+      });
+    });
+
+    this.matrixDays.set(matrix.days);
+    this.students.set(nextStudents);
+    this.attendance.set(nextAttendance);
+    this.savedAttendance.set(nextAttendance.map((record) => ({ ...record })));
+    this.meals.set(nextMeals);
+    this.savedMeals.set(nextMeals.map((meal) => ({ ...meal })));
+    this.closeCellEditor();
+    this.closeAttendanceEditor();
   }
 
-  private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
-    return [...classes].sort((a, b) => b.id - a.id)[0];
+  private changeKey(studentId: number, date: string): string {
+    return `${studentId}:${date}`;
+  }
+
+  private clearFailedCell(studentId: number, date: string): void {
+    const nextFailedCells = new Set(this.failedCellKeys());
+    nextFailedCells.delete(this.changeKey(studentId, date));
+    this.failedCellKeys.set(nextFailedCells);
+  }
+
+  private collectWeekChanges(): AttendanceWeekChangeDto[] {
+    const changes: AttendanceWeekChangeDto[] = [];
+
+    this.students()
+      .filter((student) => student.className === this.selectedClass())
+      .forEach((student) => {
+        this.visibleSchoolDays().forEach((day) => {
+          const date = this.toIsoDate(day.date);
+          const attendanceChanged = this.isCellChanged(student.id, day.id);
+          const mealChanged = this.isMealChanged(student.id, date);
+
+          if (!attendanceChanged && !mealChanged) {
+            return;
+          }
+
+          const attendanceRecord = this.recordFor(student.id, day.id);
+          const attendance = this.recordToApiStatus(attendanceRecord);
+
+          changes.push({
+            studentId: student.id,
+            date,
+            attendance,
+            meal: attendance === 'PRESENT' ? this.hasMeal(student.id, date) : false,
+          });
+        });
+      });
+
+    return changes;
+  }
+
+  private apiStatusToReason(status: AttendanceApiStatus): string {
+    const reasons: Record<Exclude<AttendanceApiStatus, 'PRESENT'>, string> = {
+      ABSENT_NO_REASON: 'Без причини',
+      EXCUSED: 'Поважна причина',
+      SICK: 'Хворий',
+    };
+
+    return status === 'PRESENT' ? 'Без причини' : reasons[status];
+  }
+
+  private recordToApiStatus(record?: AttendanceRecord): AttendanceApiStatus {
+    if (!record) {
+      return 'PRESENT';
+    }
+
+    if (record.reason === 'Хворий') {
+      return 'SICK';
+    }
+
+    if (record.reason === 'Поважна причина') {
+      return 'EXCUSED';
+    }
+
+    return 'ABSENT_NO_REASON';
+  }
+
+  private weekdayLabel(weekday: AttendanceWeekDayDto['weekday']): string {
+    const labels: Record<AttendanceWeekDayDto['weekday'], string> = {
+      monday: 'Понеділок',
+      tuesday: 'Вівторок',
+      wednesday: 'Середа',
+      thursday: 'Четвер',
+      friday: 'Пʼятниця',
+    };
+
+    return labels[weekday];
   }
 
   private compareClassNames(first: string, second: string): number {

@@ -95,6 +95,7 @@
                 @let tone = attendanceTone(row, day.id);
                 <td
                   [class.cell--changed]="isDisplayCellChanged(row, day)"
+                  [class.cell--failed]="isDisplayCellFailed(row, day)"
                   [class.cell--disabled]="!day.isSchoolDay"
                   [class.cell--combined]="tableMode() === 'combined'"
                 >
@@ -220,7 +221,11 @@
 
     <div class="attendance-card__footer">
       <div class="attendance-card__status" role="status">
-        @if (saveNotice()) {
+        @if (isMatrixLoading()) {
+          Завантаження тижня...
+        } @else if (isSaving()) {
+          Збереження...
+        } @else if (saveNotice()) {
           {{ saveNotice() }}
         } @else if (changedTotalCount()) {
           Змінено клітинок: {{ changedTotalCount() }}
@@ -229,11 +234,11 @@
         }
       </div>
       <div class="attendance-card__actions">
-        <button class="secondary-button" type="button" [disabled]="!changedTotalCount()" (click)="requestDiscardChanges()">
+        <button class="secondary-button" type="button" [disabled]="isSaving() || !changedTotalCount()" (click)="requestDiscardChanges()">
           Скасувати зміни
         </button>
-        <button class="primary-button" type="button" [disabled]="!changedTotalCount()" (click)="requestSaveChanges()">
-          Зберегти зміни
+        <button class="primary-button" type="button" [class.primary-button--loading]="isSaving()" [disabled]="isSaving() || !changedTotalCount()" (click)="requestSaveChanges()">
+          {{ isSaving() ? 'Зберігаємо...' : 'Зберегти зміни' }}
         </button>
       </div>
     </div>

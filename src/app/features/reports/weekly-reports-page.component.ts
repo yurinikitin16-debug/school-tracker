@@ -1,9 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
-import { AttendanceReportDay, Student, StudentMeal } from '../../core/models/school.models';
+import { catchError, finalize, forkJoin, of } from 'rxjs';
+
 import { AcademicYearService } from '../../core/services/academic-year.service';
-import { SchoolDataService } from '../../core/services/school-data.service';
+import {
+  AttendanceApiService,
+  AttendanceApiStatus,
+  AttendanceWeekMatrixDto,
+  AttendanceWeekStudentDto,
+} from '../../core/services/attendance-api.service';
+import { ClassDto, ClassesApiService } from '../../core/services/classes-api.service';
 import { UiEmptyStateComponent } from '../../shared/ui/empty-state/ui-empty-state.component';
 import { UiIconComponent } from '../../shared/ui/icon/ui-icon.component';
 import { UiInputComponent } from '../../shared/ui/input/ui-input.component';
@@ -12,27 +18,15 @@ import { UiSelectComponent, UiSelectOption } from '../../shared/ui/select/ui-sel
 import { UiStatCardComponent } from '../../shared/ui/stat-card/ui-stat-card.component';
 import { UiToolbarComponent } from '../../shared/ui/toolbar/ui-toolbar.component';
 
-type ReportPeriod = 'week' | 'month';
 type ReportView = 'overview' | 'students' | 'classes' | 'meals';
 type StudentSort = 'risk' | 'name';
 
-interface ReportStudentList {
-  day: AttendanceReportDay;
-}
-
-interface ClassReportRow {
+interface ReportStudent {
+  id: number;
+  firstName: string;
+  lastName: string;
+  classId: number;
   className: string;
-  totalStudents: number;
-  studentsWithAbsences: number;
-  totalAbsences: number;
-  absencePercent: number;
-  studentIds: number[];
-}
-
-interface MealReportRow {
-  student: Student;
-  mealDays: number;
-  missedMealDays: number;
 }
 
 interface OverviewDay {
@@ -40,12 +34,36 @@ interface OverviewDay {
   dayLabel: string;
   weekdayLabel: string;
   startsWeek: boolean;
+  isSchoolDay: boolean;
 }
 
 interface OverviewCell {
   code: string;
   label: string;
   tone: 'present' | 'A' | 'S' | 'E';
+}
+
+interface StudentReportRow {
+  student: ReportStudent;
+  absenceDays: number;
+  missedMealDays: number;
+}
+
+interface ClassReportRow {
+  classId: number;
+  className: string;
+  totalStudents: number;
+  studentsWithAbsences: number;
+  totalAbsences: number;
+  missedMeals: number;
+  absencePercent: number;
+  studentIds: number[];
+}
+
+interface MealReportRow {
+  student: ReportStudent;
+  mealDays: number;
+  missedMealDays: number;
 }
 
 @Component({
@@ -64,90 +82,134 @@ interface OverviewCell {
   styleUrl: './weekly-reports-page.component.scss',
 })
 export class WeeklyReportsPageComponent {
-  private readonly schoolData = inject(SchoolDataService);
   private readonly academicYear = inject(AcademicYearService);
+  private readonly attendanceApi = inject(AttendanceApiService);
+  private readonly classesApi = inject(ClassesApiService);
 
-  readonly students = signal<Student[]>([]);
-  readonly reportDays = signal<AttendanceReportDay[]>([]);
-  readonly meals = signal<StudentMeal[]>([]);
-  readonly selectedClass = signal('8-А');
-  readonly selectedPeriod = signal<ReportPeriod>('week');
+  readonly classes = signal<ClassDto[]>([]);
+  readonly matrices = signal<AttendanceWeekMatrixDto[]>([]);
+  readonly selectedClassId = signal<string>('');
   readonly selectedMonth = signal('');
   readonly selectedView = signal<ReportView>('overview');
   readonly selectedStudentSort = signal<StudentSort>('risk');
-  readonly selectedStudentList = signal<ReportStudentList | null>(null);
   readonly selectedClassReport = signal<ClassReportRow | null>(null);
   readonly searchTerm = signal('');
+  readonly isLoading = signal(false);
+  readonly loadFailed = signal(false);
 
-  readonly classOptions = computed<UiSelectOption[]>(() =>
-    [
-      { label: 'Загалом', value: 'all' },
-      ...[...new Set(this.students().map((student) => student.className))].map((className) => ({
-        label: className,
-        value: className,
-      })),
-    ],
-  );
+  readonly classOptions = computed<UiSelectOption[]>(() => {
+    const activeClasses = this.activeClasses();
+    const options = activeClasses.map((schoolClass) => ({
+      label: schoolClass.name,
+      value: schoolClass.id.toString(),
+    }));
+
+    return activeClasses.length > 1
+      ? [{ label: 'Загалом', value: 'all' }, ...options]
+      : options;
+  });
 
   readonly monthOptions = computed<UiSelectOption[]>(() => {
     const year = this.academicYear.currentAcademicYear();
-
-    if (!year) {
-      return this.monthOptionsFromReportDays();
-    }
-
-    return this.buildMonthOptions(year.startsOn, year.endsOn);
+    return year ? this.buildMonthOptions(year.startsOn, year.endsOn) : [];
   });
 
   readonly studentSortOptions: UiSelectOption[] = [
-    { label: 'Найбільше неявок', value: 'risk' },
+    { label: 'Найбільше пропусків', value: 'risk' },
     { label: 'Прізвище А-Я', value: 'name' },
   ];
 
-  readonly visibleDays = computed(() => {
-    const days = this.selectedClass() === 'all'
-      ? this.aggregateSchoolDays(this.reportDays())
-      : this.reportDays().filter((day) => day.className === this.selectedClass());
-
-    days.sort((first, second) => second.date.localeCompare(first.date));
-
-    return this.selectedPeriod() === 'week' ? days.slice(0, 5) : days;
-  });
-
-  readonly summary = computed(() => {
-    const days = this.visibleDays();
-    const totalStudents = this.selectedClass() === 'all'
-      ? this.students().length
-      : this.students().filter((student) => student.className === this.selectedClass()).length;
-    const studentsWithAbsences = new Set(days.flatMap((day) => this.absentStudentIds(day))).size;
-    const totalAbsences = days.reduce((total, day) => total + this.absentStudentIds(day).length, 0);
-
-    return { totalStudents, studentsWithAbsences, totalAbsences };
-  });
-
-  readonly overviewDays = computed<OverviewDay[]>(() => {
-    const dates = this.buildOverviewDates();
-
-    return dates.map((date, index) => {
+  readonly overviewDays = computed<OverviewDay[]>(() =>
+    this.buildOverviewDates().map((date, index) => {
       const dayDate = new Date(`${date}T12:00:00`);
+      const matrixDay = this.matrices()
+        .flatMap((matrix) => matrix.days)
+        .find((day) => day.date === date);
 
       return {
         date,
         dayLabel: new Intl.DateTimeFormat('uk-UA', { day: 'numeric' }).format(dayDate),
         weekdayLabel: new Intl.DateTimeFormat('uk-UA', { weekday: 'short' }).format(dayDate),
         startsWeek: index > 0 && dayDate.getDay() === 1,
+        isSchoolDay: matrixDay?.isSchoolDay ?? true,
       };
-    });
-  });
+    }),
+  );
 
   readonly overviewRows = computed(() => {
     const query = this.searchTerm().trim().toLowerCase();
 
-    return this.students()
-      .filter((student) => this.selectedClass() === 'all' || student.className === this.selectedClass())
+    return this.reportStudents()
       .filter((student) => !query || this.studentName(student).toLowerCase().includes(query))
       .sort((first, second) => this.studentName(first).localeCompare(this.studentName(second), 'uk'));
   });
+
+  readonly summary = computed(() => {
+    const rows = this.overviewRows();
+    const studentsWithAbsences = rows.filter((student) => this.overviewStudentTotal(student) > 0).length;
+    const totalAbsences = rows.reduce((total, student) => total + this.overviewStudentTotal(student), 0);
+
+    return { totalStudents: rows.length, studentsWithAbsences, totalAbsences };
+  });
+
+  readonly studentRows = computed<StudentReportRow[]>(() => {
+    const rows = this.overviewRows().map((student) => ({
+      student,
+      absenceDays: this.overviewStudentTotal(student),
+      missedMealDays: this.mealStudentTotal(student),
+    }));
+
+    return rows.sort((first, second) => {
+      if (this.selectedStudentSort() === 'name') {
+        return this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk');
+      }
+
+      return second.absenceDays - first.absenceDays ||
+        second.missedMealDays - first.missedMealDays ||
+        this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk');
+    });
+  });
+
+  readonly classRows = computed<ClassReportRow[]>(() =>
+    this.activeClasses().map((schoolClass) => {
+      const students = this.reportStudents().filter((student) => student.classId === schoolClass.id);
+      const studentIds = students
+        .filter((student) => this.overviewStudentTotal(student) > 0)
+        .map((student) => student.id);
+      const totalAbsences = students.reduce((total, student) => total + this.overviewStudentTotal(student), 0);
+      const missedMeals = students.reduce((total, student) => total + this.mealStudentTotal(student), 0);
+
+      return {
+        classId: schoolClass.id,
+        className: schoolClass.name,
+        totalStudents: students.length,
+        studentsWithAbsences: studentIds.length,
+        totalAbsences,
+        missedMeals,
+        absencePercent: students.length ? Math.round((studentIds.length / students.length) * 100) : 0,
+        studentIds,
+      };
+    }),
+  );
+
+  readonly mealRows = computed<MealReportRow[]>(() =>
+    this.overviewRows()
+      .map((student) => {
+        const schoolDays = this.schoolOverviewDays();
+        const missedMealDays = this.mealStudentTotal(student);
+
+        return {
+          student,
+          mealDays: Math.max(0, schoolDays.length - missedMealDays),
+          missedMealDays,
+        };
+      })
+      .sort((first, second) =>
+        second.missedMealDays - first.missedMealDays ||
+        this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk'),
+      ),
+  );
+
   readonly mealSummary = computed(() => {
     const rows = this.mealRows();
     const studentsWithoutMeals = rows.filter((row) => row.missedMealDays > 0).length;
@@ -157,116 +219,42 @@ export class WeeklyReportsPageComponent {
     return { studentsWithoutMeals, totalMeals, missedMeals };
   });
 
-  readonly selectedStudents = computed(() => {
-    const selection = this.selectedStudentList();
-
-    return selection
-      ? this.students().filter((student) => this.absentStudentIds(selection.day).includes(student.id))
-      : [];
-  });
-
-  readonly studentRows = computed(() => {
-    const rows = this.students()
-      .filter((student) => this.selectedClass() === 'all' || student.className === this.selectedClass())
-      .map((student) => {
-        const absenceDays = this.visibleDays().filter((day) => this.absentStudentIds(day).includes(student.id)).length;
-
-        return { student, absenceDays };
-      });
-
-    return rows.sort((first, second) => {
-      if (this.selectedStudentSort() === 'name') {
-        return this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk');
-      }
-
-      return second.absenceDays - first.absenceDays ||
-        this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk');
-    });
-  });
-
-  readonly classRows = computed<ClassReportRow[]>(() => {
-    const classNames = [...new Set(this.students().map((student) => student.className))].sort((first, second) =>
-      first.localeCompare(second, 'uk'),
-    );
-
-    return classNames.map((className) => {
-      const classStudents = this.students().filter((student) => student.className === className);
-      const classDays = this.reportDaysForClass(className);
-      const studentAbsences = new Map<number, number>();
-
-      classDays.forEach((day) => {
-        this.absentStudentIds(day).forEach((studentId) => {
-          studentAbsences.set(studentId, (studentAbsences.get(studentId) ?? 0) + 1);
-        });
-      });
-
-      const studentIds = [...studentAbsences.keys()];
-      const totalAbsences = [...studentAbsences.values()].reduce((total, count) => total + count, 0);
-
-      return {
-        className,
-        totalStudents: classStudents.length,
-        studentsWithAbsences: studentIds.length,
-        totalAbsences,
-        absencePercent: classStudents.length ? Math.round((studentIds.length / classStudents.length) * 100) : 0,
-        studentIds,
-      };
-    });
-  });
-
-  readonly mealRows = computed<MealReportRow[]>(() => {
-    const dates = this.visibleDays().map((day) => day.date);
-
-    return this.students()
-      .filter((student) => this.selectedClass() === 'all' || student.className === this.selectedClass())
-      .map((student) => {
-        const mealDays = dates.filter((date) => this.hasMeal(student.id, date)).length;
-
-        return {
-          student,
-          mealDays,
-          missedMealDays: Math.max(0, dates.length - mealDays),
-        };
-      })
-      .sort((first, second) =>
-        second.missedMealDays - first.missedMealDays ||
-        this.studentName(first.student).localeCompare(this.studentName(second.student), 'uk'),
-      );
+  readonly selectedClassReportStudents = computed(() => {
+    const row = this.selectedClassReport();
+    return row ? this.reportStudents().filter((student) => row.studentIds.includes(student.id)) : [];
   });
 
   constructor() {
     effect(() => {
+      const academicYearId = this.academicYear.currentYearId();
+
+      if (academicYearId) {
+        this.loadClasses(academicYearId);
+      }
+    });
+
+    effect(() => {
       const options = this.monthOptions();
       const selectedMonth = this.selectedMonth();
 
-      if (!options.length) {
-        return;
-      }
-
-      if (!options.some((option) => option.value === selectedMonth)) {
+      if (options.length && !options.some((option) => option.value === selectedMonth)) {
         this.selectedMonth.set(this.defaultMonthValue(options));
       }
     });
 
-    forkJoin({
-      students: this.schoolData.getStudents(),
-      reportDays: this.schoolData.getAttendanceReportDays(),
-      meals: this.schoolData.getStudentMeals(),
-    }).subscribe(({ students, reportDays, meals }) => {
-      this.students.set(students);
-      this.reportDays.set(reportDays);
-      this.meals.set(meals.filter((meal) => !meal.hadMeal));
-      this.selectedClass.set(students[0]?.className ?? '');
+    effect(() => {
+      const selectedMonth = this.selectedMonth();
+      const selectedClassId = this.selectedClassId();
+
+      if (selectedMonth && selectedClassId && this.activeClasses().length) {
+        this.loadReportData();
+      }
     });
   }
 
-  updateClass(className: string): void {
-    this.selectedClass.set(className);
+  updateClass(classId: string): void {
+    this.selectedClassId.set(classId);
     this.searchTerm.set('');
-  }
-
-  updatePeriod(period: string): void {
-    this.selectedPeriod.set(period as ReportPeriod);
   }
 
   updateMonth(month: string): void {
@@ -281,16 +269,6 @@ export class WeeklyReportsPageComponent {
     this.selectedStudentSort.set(sort as StudentSort);
   }
 
-  openStudentList(day: AttendanceReportDay): void {
-    if (this.absentStudentIds(day).length) {
-      this.selectedStudentList.set({ day });
-    }
-  }
-
-  closeStudentList(): void {
-    this.selectedStudentList.set(null);
-  }
-
   openClassReport(row: ClassReportRow): void {
     if (row.studentsWithAbsences) {
       this.selectedClassReport.set(row);
@@ -301,51 +279,38 @@ export class WeeklyReportsPageComponent {
     this.selectedClassReport.set(null);
   }
 
-  readonly selectedClassReportStudents = computed(() => {
-    const row = this.selectedClassReport();
-    return row ? this.students().filter((student) => row.studentIds.includes(student.id)) : [];
-  });
-
-  absentStudentIds(day: AttendanceReportDay): number[] {
-    return [...new Set([...day.fullyAbsentStudentIds, ...day.partiallyAbsentStudentIds])];
-  }
-
-  studentName(student: Student): string {
+  studentName(student: ReportStudent): string {
     return `${student.lastName} ${student.firstName}`;
   }
 
-  hasMeal(studentId: number, date: string): boolean {
-    return !this.meals().some((meal) => meal.studentId === studentId && meal.date === date && meal.hadMeal === false);
-  }
+  overviewCell(student: ReportStudent, date: string): OverviewCell {
+    const cell = this.dayState(student, date);
 
-  overviewCell(student: Student, date: string): OverviewCell {
-    const day = this.reportDays().find((item) => item.className === student.className && item.date === date);
-
-    if (!day || !this.absentStudentIds(day).includes(student.id)) {
-      return {
-        code: '✓',
-        label: 'Присутній',
-        tone: 'present',
-      };
+    if (!cell || cell.attendance === 'PRESENT') {
+      return { code: '✓', label: 'Присутній', tone: 'present' };
     }
 
-    if (day.fullyAbsentStudentIds.includes(student.id)) {
-      return {
-        code: 'Н',
-        label: 'Без причини',
-        tone: 'A',
-      };
-    }
+    const labels: Record<Exclude<AttendanceApiStatus, 'PRESENT'>, OverviewCell> = {
+      ABSENT_NO_REASON: { code: 'Н', label: 'Без причини', tone: 'A' },
+      EXCUSED: { code: 'п/п', label: 'Поважна причина', tone: 'E' },
+      SICK: { code: 'хв', label: 'Хворий', tone: 'S' },
+    };
 
-    const isSick = (student.id + Number(date.slice(-2))) % 3 === 0;
-
-    return isSick
-      ? { code: 'хв', label: 'Хворий', tone: 'S' }
-      : { code: 'п/п', label: 'Поважна причина', tone: 'E' };
+    return labels[cell.attendance];
   }
 
-  overviewStudentTotal(student: Student): number {
-    return this.overviewDays().filter((day) => this.overviewCell(student, day.date).tone !== 'present').length;
+  mealCell(student: ReportStudent, date: string): OverviewCell {
+    const cell = this.dayState(student, date);
+
+    if (!cell || cell.meal) {
+      return { code: '✓', label: 'Харчувався', tone: 'present' };
+    }
+
+    return { code: 'Ні', label: 'Не харчувався', tone: 'A' };
+  }
+
+  overviewStudentTotal(student: ReportStudent): number {
+    return this.schoolOverviewDays().filter((day) => this.overviewCell(student, day.date).tone !== 'present').length;
   }
 
   overviewDayTotal(date: string): number {
@@ -354,6 +319,18 @@ export class WeeklyReportsPageComponent {
 
   overviewGrandTotal(): number {
     return this.overviewRows().reduce((total, student) => total + this.overviewStudentTotal(student), 0);
+  }
+
+  mealStudentTotal(student: ReportStudent): number {
+    return this.schoolOverviewDays().filter((day) => this.mealCell(student, day.date).tone !== 'present').length;
+  }
+
+  mealDayTotal(date: string): number {
+    return this.overviewRows().filter((student) => this.mealCell(student, date).tone !== 'present').length;
+  }
+
+  mealGrandTotal(): number {
+    return this.overviewRows().reduce((total, student) => total + this.mealStudentTotal(student), 0);
   }
 
   formatDate(date: string): string {
@@ -367,113 +344,148 @@ export class WeeklyReportsPageComponent {
   async exportReport(): Promise<void> {
     const XLSX = await import('xlsx');
     const workbook = XLSX.utils.book_new();
-    const classLabel = this.selectedClass() === 'all' ? 'Загалом' : this.selectedClass();
+    const classLabel = this.classOptions().find((option) => option.value === this.selectedClassId())?.label ?? '';
     const periodLabel = this.monthOptions().find((option) => option.value === this.selectedMonth())?.label ?? '';
     const overviewRows = [
-      ['Звіт неявок'],
+      ['Звіт пропусків'],
       ['Клас', classLabel],
       ['Період', periodLabel],
       [],
-      ['Дата', 'Учнів з неявкою'],
-      ...this.visibleDays().map((day) => [
-        this.formatDate(day.date),
-        this.absentStudentIds(day).length,
+      ['Учень', ...this.overviewDays().map((day) => day.date), 'Всього'],
+      ...this.overviewRows().map((student) => [
+        this.studentName(student),
+        ...this.overviewDays().map((day) => this.overviewCell(student, day.date).code),
+        this.overviewStudentTotal(student),
       ]),
+      [
+        'Всього',
+        ...this.overviewDays().map((day) => this.overviewDayTotal(day.date)),
+        this.overviewGrandTotal(),
+      ],
     ];
     const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows);
-    overviewSheet['!cols'] = [{ wch: 24 }, { wch: 18 }];
-    XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Огляд');
+    overviewSheet['!cols'] = [{ wch: 28 }, ...this.overviewDays().map(() => ({ wch: 8 })), { wch: 10 }];
+    XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Пропуски');
 
-    const studentHeaders = [
-      'Учень',
-      ...(this.selectedClass() === 'all' ? ['Клас'] : []),
-      'Днів неявки',
-    ];
-    const studentRows = this.studentRows().map((row) => [
-      this.studentName(row.student),
-      ...(this.selectedClass() === 'all' ? [row.student.className] : []),
-      row.absenceDays,
-    ]);
-    const studentsSheet = XLSX.utils.aoa_to_sheet([['Неявки по учнях'], [], studentHeaders, ...studentRows]);
-    studentsSheet['!cols'] = [
-      { wch: 28 },
-      ...(this.selectedClass() === 'all' ? [{ wch: 10 }] : []),
-      { wch: 14 },
-    ];
-    XLSX.utils.book_append_sheet(workbook, studentsSheet, 'По учнях');
-
-    const classRows = this.classRows().map((row) => [
-      row.className,
-      row.totalStudents,
-      row.studentsWithAbsences,
-      row.totalAbsences,
-      row.absencePercent,
-    ]);
-    const classesSheet = XLSX.utils.aoa_to_sheet([
-      ['Неявки по класах'],
+    const mealRows = [
+      ['Звіт харчування'],
+      ['Клас', classLabel],
+      ['Період', periodLabel],
       [],
-      ['Клас', 'Учнів', 'Учнів з неявками', 'Всього неявок', '% учнів з неявками'],
-      ...classRows,
-    ]);
-    classesSheet['!cols'] = [{ wch: 10 }, { wch: 10 }, { wch: 22 }, { wch: 16 }, { wch: 22 }];
-    XLSX.utils.book_append_sheet(workbook, classesSheet, 'По класах');
-
-    const mealHeaders = [
-      'Учень',
-      ...(this.selectedClass() === 'all' ? ['Клас'] : []),
-      'Харчувався днів',
-      'Не харчувався днів',
+      ['Учень', ...this.overviewDays().map((day) => day.date), 'Не харч.'],
+      ...this.overviewRows().map((student) => [
+        this.studentName(student),
+        ...this.overviewDays().map((day) => this.mealCell(student, day.date).code),
+        this.mealStudentTotal(student),
+      ]),
+      [
+        'Всього',
+        ...this.overviewDays().map((day) => this.mealDayTotal(day.date)),
+        this.mealGrandTotal(),
+      ],
     ];
-    const mealRows = this.mealRows().map((row) => [
-      this.studentName(row.student),
-      ...(this.selectedClass() === 'all' ? [row.student.className] : []),
-      row.mealDays,
-      row.missedMealDays,
-    ]);
-    const mealsSheet = XLSX.utils.aoa_to_sheet([['Харчування по учнях'], [], mealHeaders, ...mealRows]);
-    mealsSheet['!cols'] = [
-      { wch: 28 },
-      ...(this.selectedClass() === 'all' ? [{ wch: 10 }] : []),
-      { wch: 16 },
-      { wch: 18 },
-    ];
+    const mealsSheet = XLSX.utils.aoa_to_sheet(mealRows);
+    mealsSheet['!cols'] = [{ wch: 28 }, ...this.overviewDays().map(() => ({ wch: 8 })), { wch: 10 }];
     XLSX.utils.book_append_sheet(workbook, mealsSheet, 'Харчування');
 
-    XLSX.writeFile(workbook, `absence-report-${this.selectedClass()}-${this.selectedPeriod()}.xlsx`);
+    XLSX.writeFile(workbook, `school-report-${this.selectedClassId()}-${this.selectedMonth()}.xlsx`);
   }
 
-  private reportDaysForClass(className: string): AttendanceReportDay[] {
-    const days = this.reportDays()
-      .filter((day) => day.className === className)
-      .sort((first, second) => second.date.localeCompare(first.date));
+  private loadClasses(academicYearId: number): void {
+    this.classesApi
+      .getClasses(academicYearId)
+      .pipe(catchError(() => of([])))
+      .subscribe((classes) => {
+        const activeClasses = classes.filter((schoolClass) => schoolClass.isActive);
 
-    return this.selectedPeriod() === 'week' ? days.slice(0, 5) : days;
-  }
+        this.classes.set(activeClasses);
 
-  private aggregateSchoolDays(days: AttendanceReportDay[]): AttendanceReportDay[] {
-    const daysByDate = new Map<string, AttendanceReportDay>();
+        if (!activeClasses.length) {
+          this.selectedClassId.set('');
+          return;
+        }
 
-    for (const day of days) {
-      const existing = daysByDate.get(day.date);
-
-      if (existing) {
-        existing.fullyAbsentStudents += day.fullyAbsentStudents;
-        existing.fullyAbsentStudentIds.push(...day.fullyAbsentStudentIds);
-        existing.partiallyAbsentStudents += day.partiallyAbsentStudents;
-        existing.partiallyAbsentStudentIds.push(...day.partiallyAbsentStudentIds);
-        existing.lessonsWithAbsences += day.lessonsWithAbsences;
-        continue;
-      }
-
-      daysByDate.set(day.date, {
-        ...day,
-        className: 'all',
-        fullyAbsentStudentIds: [...day.fullyAbsentStudentIds],
-        partiallyAbsentStudentIds: [...day.partiallyAbsentStudentIds],
+        if (!activeClasses.some((schoolClass) => schoolClass.id.toString() === this.selectedClassId())) {
+          this.selectedClassId.set(this.findLatestClass(activeClasses)?.id.toString() ?? activeClasses[0].id.toString());
+        }
       });
+  }
+
+  private loadReportData(): void {
+    const classIds = this.selectedReportClassIds();
+    const weekStarts = this.weekStartsForSelectedMonth();
+
+    if (!classIds.length || !weekStarts.length) {
+      this.matrices.set([]);
+      return;
     }
 
-    return [...daysByDate.values()];
+    this.isLoading.set(true);
+    this.loadFailed.set(false);
+
+    forkJoin(
+      classIds.flatMap((classId) =>
+        weekStarts.map((weekStart) =>
+          this.attendanceApi.getWeek(classId, weekStart).pipe(catchError(() => of(null))),
+        ),
+      ),
+    ).pipe(finalize(() => this.isLoading.set(false))).subscribe((matrices) => {
+      const loadedMatrices = matrices.filter((matrix): matrix is AttendanceWeekMatrixDto => !!matrix);
+      this.loadFailed.set(loadedMatrices.length !== matrices.length);
+      this.matrices.set(loadedMatrices);
+    });
+  }
+
+  private activeClasses(): ClassDto[] {
+    return [...this.classes()].sort((first, second) =>
+      first.name.localeCompare(second.name, 'uk', { numeric: true, sensitivity: 'base' }),
+    );
+  }
+
+  private selectedReportClassIds(): number[] {
+    if (this.selectedClassId() === 'all') {
+      return this.activeClasses().map((schoolClass) => schoolClass.id);
+    }
+
+    const classId = Number(this.selectedClassId());
+    return Number.isFinite(classId) ? [classId] : [];
+  }
+
+  private reportStudents(): ReportStudent[] {
+    const students = new Map<number, ReportStudent>();
+
+    this.matrices().forEach((matrix) => {
+      const schoolClass = this.classes().find((item) => item.id === matrix.classId);
+
+      matrix.students.forEach((student) => {
+        students.set(student.id, this.mapStudent(student, matrix.classId, schoolClass?.name ?? ''));
+      });
+    });
+
+    return [...students.values()];
+  }
+
+  private mapStudent(student: AttendanceWeekStudentDto, classId: number, className: string): ReportStudent {
+    return {
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      classId,
+      className,
+    };
+  }
+
+  private dayState(student: ReportStudent, date: string): { attendance: AttendanceApiStatus; meal: boolean } | null {
+    const matrix = this.matrices().find((item) =>
+      item.classId === student.classId &&
+      item.days.some((day) => day.date === date),
+    );
+
+    return matrix?.students.find((item) => item.id === student.id)?.days[date] ?? null;
+  }
+
+  private schoolOverviewDays(): OverviewDay[] {
+    return this.overviewDays().filter((day) => day.isSchoolDay);
   }
 
   private buildMonthOptions(startsOn: string, endsOn: string): UiSelectOption[] {
@@ -497,19 +509,6 @@ export class WeeklyReportsPageComponent {
     }
 
     return options;
-  }
-
-  private monthOptionsFromReportDays(): UiSelectOption[] {
-    const monthKeys = [...new Set(this.reportDays().map((day) => day.date.slice(0, 7)))]
-      .sort((first, second) => first.localeCompare(second));
-
-    return monthKeys.map((month) => {
-      const [year, monthIndex] = month.split('-').map(Number);
-      return {
-        label: this.formatMonth(new Date(year, monthIndex - 1, 1)),
-        value: month,
-      };
-    });
   }
 
   private defaultMonthValue(options: UiSelectOption[]): string {
@@ -548,6 +547,24 @@ export class WeeklyReportsPageComponent {
     }
 
     return dates;
+  }
+
+  private weekStartsForSelectedMonth(): string[] {
+    const weekStarts = new Set<string>();
+
+    this.buildOverviewDates().forEach((date) => {
+      const weekStart = new Date(`${date}T12:00:00`);
+      const dayOffset = (weekStart.getDay() + 6) % 7;
+
+      weekStart.setDate(weekStart.getDate() - dayOffset);
+      weekStarts.add(this.toIsoDate(weekStart));
+    });
+
+    return [...weekStarts].sort((first, second) => first.localeCompare(second));
+  }
+
+  private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
+    return [...classes].sort((first, second) => second.id - first.id)[0];
   }
 
   private formatMonth(date: Date): string {
