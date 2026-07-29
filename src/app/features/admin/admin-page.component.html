@@ -1,0 +1,189 @@
+<section class="admin-page">
+  <ui-page-header eyebrow="Керування системою" title="Адміністрування" />
+
+  <div class="admin-summary">
+    <article>
+      <span>Активних користувачів</span>
+      <strong>{{ activeTeachersCount() + activeAdminsCount() }}</strong>
+    </article>
+    <article>
+      <span>Класних керівників</span>
+      <strong>{{ activeTeachersCount() }}</strong>
+    </article>
+    <article>
+      <span>Адміністраторів</span>
+      <strong>{{ activeAdminsCount() }}</strong>
+    </article>
+  </div>
+
+  <article class="admin-card">
+    <header class="admin-card__header">
+      <div>
+        <h2>Користувачі</h2>
+        <p>Облікові записи працівників школи.</p>
+      </div>
+      <button class="primary-button" type="button" (click)="openCreateUser()">Додати користувача</button>
+    </header>
+
+    <ui-toolbar>
+      <ui-input
+        class="admin-search"
+        icon="search"
+        placeholder="Пошук за іменем або логіном..."
+        [value]="userSearch()"
+        (valueChange)="userSearch.set($event)"
+      />
+    </ui-toolbar>
+
+    @if (filteredUsers().length) {
+      <div class="admin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ПІБ</th>
+              <th>Логін</th>
+              <th>Роль</th>
+              <th>Стан</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of filteredUsers(); track user.id) {
+              <tr [class.admin-row--disabled]="!user.isActive">
+                <td><strong>{{ user.fullName }}</strong></td>
+                <td>{{ user.login }}</td>
+                <td>{{ roleLabel(user.role) }}</td>
+                <td>
+                  <span class="status-badge" [class.status-badge--disabled]="!user.isActive">
+                    {{ user.isActive ? 'Активний' : 'Неактивний' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-button" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEditUser(user)">
+                      <ui-icon name="pencil" />
+                    </button>
+                    @if (user.isActive) {
+                      <button class="icon-button icon-button--danger" type="button" title="Деактивувати" aria-label="Деактивувати" (click)="requestDisableUser(user)">
+                        <ui-icon name="x" />
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <ui-empty-state title="Користувачів не знайдено" description="Змініть пошук або додайте нового користувача." icon="users" />
+    }
+  </article>
+
+  <article class="admin-card">
+    <header class="admin-card__header">
+      <div>
+        <h2>Класні керівники</h2>
+        <p>Призначення користувачів до класів за навчальний рік.</p>
+      </div>
+      <button class="primary-button" type="button" [disabled]="!teacherOptions().length || !classOptions().length" (click)="openCreateAssignment()">
+        Додати призначення
+      </button>
+    </header>
+
+    <ui-toolbar>
+      <ui-select
+        class="admin-year"
+        ariaLabel="Навчальний рік"
+        [options]="yearOptions()"
+        [value]="selectedYearId() ? selectedYearId()!.toString() : ''"
+        (valueChange)="updateYear($event)"
+      />
+      <ui-input
+        class="admin-search"
+        icon="search"
+        placeholder="Пошук за класом або керівником..."
+        [value]="assignmentSearch()"
+        (valueChange)="assignmentSearch.set($event)"
+      />
+    </ui-toolbar>
+
+    @if (assignmentRows().length) {
+      <div class="admin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Клас</th>
+              <th>Класний керівник</th>
+              <th>Стан</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of assignmentRows(); track row.assignment.id) {
+              <tr>
+                <td><strong>{{ row.className }}</strong></td>
+                <td>{{ row.teacherName }}</td>
+                <td><span class="status-badge">Активне</span></td>
+                <td>
+                  <div class="row-actions">
+                    <button class="icon-button" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEditAssignment(row)">
+                      <ui-icon name="pencil" />
+                    </button>
+                    <button class="icon-button icon-button--danger" type="button" title="Прибрати" aria-label="Прибрати" (click)="requestDisableAssignment(row)">
+                      <ui-icon name="x" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <ui-empty-state title="Призначень немає" description="Додайте класного керівника для потрібного класу." icon="users" />
+    }
+  </article>
+
+  <ui-side-panel [open]="isUserPanelOpen()" [title]="userPanelTitle()" (closed)="closeUserPanel()">
+    <form class="admin-form" (ngSubmit)="saveUser()">
+      <ui-input label="ПІБ" [value]="draftFullName()" [autofocus]="true" (valueChange)="draftFullName.set($event)" />
+      <ui-input label="Логін" [value]="draftLogin()" (valueChange)="draftLogin.set($event)" />
+      <ui-input
+        [label]="editingUserId() === null ? 'Пароль' : 'Новий пароль'"
+        type="password"
+        [placeholder]="editingUserId() === null ? '' : 'Залиште порожнім, якщо не змінюється'"
+        [value]="draftPassword()"
+        (valueChange)="draftPassword.set($event)"
+      />
+      <ui-select label="Роль" [options]="roleOptions" [value]="draftRole()" (valueChange)="draftRole.set($any($event))" />
+      <button class="primary-button" type="submit" [disabled]="!canSaveUser()">Зберегти</button>
+    </form>
+  </ui-side-panel>
+
+  <ui-side-panel [open]="isAssignmentPanelOpen()" [title]="assignmentPanelTitle()" (closed)="closeAssignmentPanel()">
+    <form class="admin-form" (ngSubmit)="saveAssignment()">
+      <ui-select label="Класний керівник" [options]="teacherOptions()" [value]="draftTeacherId()" (valueChange)="draftTeacherId.set($event)" />
+      <ui-select label="Клас" [options]="classOptions()" [value]="draftClassId()" (valueChange)="draftClassId.set($event)" />
+      <button class="primary-button" type="submit" [disabled]="!canSaveAssignment()">Зберегти</button>
+    </form>
+  </ui-side-panel>
+
+  <ui-confirm-dialog
+    [open]="!!userToDisable()"
+    title="Деактивувати користувача?"
+    [description]="'Користувач ' + (userToDisable()?.fullName ?? '') + ' втратить доступ до системи.'"
+    confirmLabel="Деактивувати"
+    (closed)="closeDisableUserConfirmation()"
+    (confirmed)="confirmDisableUser()"
+  />
+
+  <ui-confirm-dialog
+    [open]="!!assignmentToDisable()"
+    title="Прибрати призначення?"
+    [description]="(assignmentToDisable()?.teacherName ?? '') + ' більше не буде класним керівником ' + (assignmentToDisable()?.className ?? '') + '.'"
+    confirmLabel="Прибрати"
+    (closed)="closeDisableAssignmentConfirmation()"
+    (confirmed)="confirmDisableAssignment()"
+  />
+</section>

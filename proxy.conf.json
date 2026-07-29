@@ -1,0 +1,7 @@
+{
+  "/api": {
+    "target": "https://school-tracker-api.yurinikitin16.workers.dev",
+    "secure": true,
+    "changeOrigin": true
+  }
+}

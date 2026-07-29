@@ -1,0 +1,43 @@
+<main class="login-page">
+  <section class="login-card" aria-labelledby="login-title">
+    <div class="login-brand">
+      <span class="login-brand__mark">S</span>
+      <div>
+        <strong>SchoolTrack</strong>
+        <span>Відвідування учнів</span>
+      </div>
+    </div>
+
+    <header>
+      <p>Доступ для працівників школи</p>
+      <h1 id="login-title">Увійти в систему</h1>
+    </header>
+
+    <form class="login-form" (ngSubmit)="submit()">
+      <ui-input
+        label="Логін"
+        placeholder="Наприклад, ivanenko"
+        [autofocus]="true"
+        [disabled]="isSubmitting()"
+        [value]="login()"
+        (valueChange)="login.set($event)"
+      />
+      <ui-input
+        label="Пароль"
+        placeholder="Введіть пароль"
+        type="password"
+        [disabled]="isSubmitting()"
+        [value]="password()"
+        (valueChange)="password.set($event)"
+      />
+
+      @if (errorMessage()) {
+        <p class="login-form__error">{{ errorMessage() }}</p>
+      }
+
+      <ui-button variant="primary" type="submit" [disabled]="isSubmitting()" [wide]="true">
+        {{ isSubmitting() ? 'Входимо...' : 'Увійти' }}
+      </ui-button>
+    </form>
+  </section>
+</main>
