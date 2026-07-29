@@ -14,6 +14,8 @@ export async function onRequest({ request, env }: PagesFunctionContext): Promise
   const headers = new Headers(request.headers);
 
   headers.delete('host');
+  headers.delete('origin');
+  headers.delete('referer');
 
   const response = await fetch(
     new Request(targetUrl.toString(), {
