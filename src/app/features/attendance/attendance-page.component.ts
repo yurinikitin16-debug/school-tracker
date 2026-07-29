@@ -128,6 +128,7 @@ export class AttendancePageComponent {
   readonly draftStatus = signal<AttendanceViewStatus>('present');
   readonly draftReason = signal('');
   readonly draftFullWeekAbsent = signal(false);
+  readonly savedFullWeekAbsent = signal(false);
   readonly saveNotice = signal('');
   readonly confirmationAction = signal<ConfirmationAction | null>(null);
   readonly attendanceDate = signal(this.resolveAttendanceDate(new Date()));
@@ -545,7 +546,7 @@ export class AttendancePageComponent {
       return '—';
     }
 
-    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Харч.' : 'Ні';
+    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Х.' : 'Ні';
   }
 
   updateTableMode(mode: TableMode): void {
@@ -683,6 +684,7 @@ export class AttendancePageComponent {
 
     this.selectedCell.set({ studentId: row.student.id, lessonId: days[0].id });
     this.draftFullWeekAbsent.set(isAbsentAllWeek);
+    this.savedFullWeekAbsent.set(isAbsentAllWeek);
     this.draftStatus.set('A');
     this.draftReason.set(firstRecord?.reason ?? 'Без причини');
   }
@@ -730,6 +732,7 @@ export class AttendancePageComponent {
     this.draftStatus.set('present');
     this.draftReason.set('');
     this.draftFullWeekAbsent.set(false);
+    this.savedFullWeekAbsent.set(false);
   }
 
   updateDraftStatus(value: string): void {

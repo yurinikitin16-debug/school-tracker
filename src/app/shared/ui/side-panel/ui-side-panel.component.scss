@@ -40,11 +40,14 @@ button:not(.backdrop) {
   width: 36px;
   height: 36px;
   place-items: center;
+  padding: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
+  line-height: 1;
+  appearance: none;
 }
 
 .panel__body {

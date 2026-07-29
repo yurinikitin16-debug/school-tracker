@@ -299,7 +299,7 @@
           [ngModel]="draftFullWeekAbsent()"
           (ngModelChange)="updateDraftFullWeekAbsent($event)"
         />
-        <span>Учень не буде присутнім увесь тиждень</span>
+        <span>Відсутній цілий тиждень</span>
       </label>
 
       @if (draftFullWeekAbsent()) {
@@ -314,7 +314,7 @@
 
       <div class="editor__actions">
         <button class="secondary-button" type="button" (click)="closeAttendanceEditor()">Скасувати</button>
-        <button class="primary-button" type="button" [disabled]="!draftFullWeekAbsent()" (click)="saveAttendance()">Зберегти</button>
+        <button class="primary-button" type="button" [disabled]="draftFullWeekAbsent() === savedFullWeekAbsent() && !draftFullWeekAbsent()" (click)="saveAttendance()">Зберегти</button>
       </div>
     </div>
   </ui-side-panel>

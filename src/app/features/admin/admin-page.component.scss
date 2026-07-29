@@ -48,6 +48,11 @@
   overflow: hidden;
 }
 
+.admin-card > ui-toolbar {
+  display: block;
+  margin: 0 22px 14px;
+}
+
 .admin-card__header {
   display: flex;
   align-items: center;
@@ -81,6 +86,9 @@
 }
 
 .admin-table-wrap {
+  margin: 0 22px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   overflow-x: auto;
 }
 
@@ -150,11 +158,14 @@ td:last-child {
   width: 32px;
   height: 32px;
   place-items: center;
+  padding: 0;
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-muted-strong);
   cursor: pointer;
+  line-height: 1;
+  appearance: none;
 }
 
 .icon-button:hover {
@@ -197,6 +208,11 @@ td:last-child {
 
   .admin-card__header {
     display: grid;
+    padding: 18px;
+  }
+
+  .admin-card > ui-toolbar {
+    margin: 0 18px 14px;
   }
 
   .admin-card__header .primary-button,
@@ -208,5 +224,9 @@ td:last-child {
 
   table {
     min-width: 680px;
+  }
+
+  .admin-table-wrap {
+    margin: 0 18px 18px;
   }
 }

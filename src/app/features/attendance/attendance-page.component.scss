@@ -30,6 +30,12 @@
   box-shadow: var(--shadow-card);
 }
 
+.attendance-card > ui-toolbar {
+  position: relative;
+  z-index: 8;
+  background: var(--color-surface);
+}
+
 .control {
   width: 190px;
 }
@@ -76,6 +82,8 @@
 }
 
 .table-wrap {
+  position: relative;
+  z-index: 1;
   overflow: auto;
   min-height: 0;
   border: 1px solid var(--color-border);
@@ -390,6 +398,17 @@ tfoot td:last-child {
 }
 
 @media (max-width: 760px) {
+  .attendance-page {
+    height: auto;
+    min-height: calc(100dvh - 98px);
+  }
+
+  .attendance-card {
+    grid-template-rows: auto auto auto;
+    gap: 12px;
+    padding: 12px;
+  }
+
   .control,
   .control--sm,
   .search-control {
@@ -412,44 +431,68 @@ tfoot td:last-child {
   }
 
   .row-number-cell {
-    width: 38px;
-    min-width: 38px;
+    width: 36px;
+    min-width: 36px;
     padding-right: 8px;
     padding-left: 8px;
   }
 
   .student-column {
-    width: 142px;
-    min-width: 142px;
+    width: 120px;
+    min-width: 120px;
+  }
+
+  .table-wrap {
+    max-height: clamp(300px, 58dvh, 560px);
   }
 
   table {
-    min-width: 948px;
+    min-width: 846px;
   }
 
   th:nth-child(1),
   td:nth-child(1) {
-    width: 38px;
+    width: 36px;
   }
 
   th:nth-child(2),
   td:nth-child(2) {
-    width: 142px;
+    width: 120px;
   }
 
   th:nth-child(n + 3),
   td:nth-child(n + 3) {
-    width: 128px;
+    width: 118px;
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   thead .student-column,
   tbody .student-column {
-    left: 38px;
+    left: 36px;
+    border-right-color: transparent;
+    box-shadow: 1px 0 0 var(--color-border-soft);
+  }
+
+  thead th:last-child,
+  tbody td:last-child {
+    position: static;
+    right: auto;
+    box-shadow: none;
+  }
+
+  tfoot td:last-child {
+    right: auto;
+    box-shadow: none;
   }
 
   tfoot .footer-total-label {
-    width: 180px;
-    min-width: 180px;
-    max-width: 180px;
+    width: 156px;
+    min-width: 156px;
+    max-width: 156px;
+  }
+
+  .cell--combined::after {
+    display: none;
   }
 }
