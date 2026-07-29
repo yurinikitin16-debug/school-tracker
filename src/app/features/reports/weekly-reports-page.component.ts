@@ -303,7 +303,7 @@ export class WeeklyReportsPageComponent {
     const cell = this.dayState(student, date);
 
     if (!cell || cell.meal) {
-      return { code: '✓', label: 'Харчувався', tone: 'present' };
+      return { code: 'Харч.', label: 'Харчувався', tone: 'present' };
     }
 
     return { code: 'Ні', label: 'Не харчувався', tone: 'A' };

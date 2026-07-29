@@ -156,8 +156,11 @@
         [value]="draftPassword()"
         (valueChange)="draftPassword.set($event)"
       />
-      <ui-select label="Роль" [options]="roleOptions" [value]="draftRole()" (valueChange)="draftRole.set($any($event))" />
-      <button class="primary-button" type="submit" [disabled]="!canSaveUser()">Зберегти</button>
+      <ui-select label="Роль" [options]="roleOptions" [value]="draftRole()" (valueChange)="updateDraftRole($any($event))" />
+      @if (shouldAssignClassOnCreate()) {
+        <ui-select label="Клас" [options]="classOptions()" [value]="draftUserClassId()" (valueChange)="draftUserClassId.set($event)" />
+      }
+      <button class="primary-button" type="submit" [disabled]="!canSaveUserWithAssignment()">Зберегти</button>
     </form>
   </ui-side-panel>
 

@@ -19,6 +19,12 @@ export interface CreateAdminUserRequest {
   role: UserRole;
 }
 
+export interface CreateClassTeacherUserRequest extends CreateAdminUserRequest {
+  role: 'class_teacher';
+  classId: number;
+  academicYearId: number;
+}
+
 export interface UpdateAdminUserRequest {
   fullName?: string;
   login?: string;
@@ -48,6 +54,11 @@ export interface UpdateClassTeacherAssignmentRequest {
   isActive?: boolean;
 }
 
+export interface CreateClassTeacherUserResponse {
+  user: AdminUserDto;
+  assignment: ClassTeacherAssignmentDto;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminApiService {
   private readonly api = inject(ApiClientService);
@@ -58,6 +69,15 @@ export class AdminApiService {
 
   createUser(request: CreateAdminUserRequest): Observable<AdminUserDto> {
     return this.api.post<AdminUserDto, CreateAdminUserRequest>('/api/users', request);
+  }
+
+  createClassTeacherUser(
+    request: CreateClassTeacherUserRequest,
+  ): Observable<CreateClassTeacherUserResponse> {
+    return this.api.post<CreateClassTeacherUserResponse, CreateClassTeacherUserRequest>(
+      '/api/users/class-teacher',
+      request,
+    );
   }
 
   updateUser(id: number, request: UpdateAdminUserRequest): Observable<AdminUserDto> {

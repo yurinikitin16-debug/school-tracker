@@ -545,7 +545,7 @@ export class AttendancePageComponent {
       return '—';
     }
 
-    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Їв' : 'Не їв';
+    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Харч.' : 'Ні';
   }
 
   updateTableMode(mode: TableMode): void {

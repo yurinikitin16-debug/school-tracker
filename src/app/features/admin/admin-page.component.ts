@@ -66,6 +66,7 @@ export class AdminPageComponent {
   readonly draftLogin = signal('');
   readonly draftPassword = signal('');
   readonly draftRole = signal<UserRole>('class_teacher');
+  readonly draftUserClassId = signal('');
 
   readonly isAssignmentPanelOpen = signal(false);
   readonly editingAssignmentId = signal<number | null>(null);
@@ -141,6 +142,12 @@ export class AdminPageComponent {
     !!this.draftLogin().trim() &&
     (this.editingUserId() !== null || this.draftPassword().length >= 8),
   );
+  readonly shouldAssignClassOnCreate = computed(
+    () => this.editingUserId() === null && this.draftRole() === 'class_teacher',
+  );
+  readonly canSaveUserWithAssignment = computed(
+    () => this.canSaveUser() && (!this.shouldAssignClassOnCreate() || (!!this.selectedYearId() && !!this.draftUserClassId())),
+  );
   readonly canSaveAssignment = computed(() =>
     !!this.selectedYearId() && !!this.draftTeacherId() && !!this.draftClassId(),
   );
@@ -162,6 +169,7 @@ export class AdminPageComponent {
     this.draftLogin.set('');
     this.draftPassword.set('');
     this.draftRole.set('class_teacher');
+    this.draftUserClassId.set(this.classOptions()[0]?.value ?? '');
     this.isUserPanelOpen.set(true);
   }
 
@@ -171,6 +179,7 @@ export class AdminPageComponent {
     this.draftLogin.set(user.login);
     this.draftPassword.set('');
     this.draftRole.set(user.role);
+    this.draftUserClassId.set('');
     this.isUserPanelOpen.set(true);
   }
 
@@ -178,10 +187,11 @@ export class AdminPageComponent {
     this.isUserPanelOpen.set(false);
     this.editingUserId.set(null);
     this.draftPassword.set('');
+    this.draftUserClassId.set('');
   }
 
   saveUser(): void {
-    if (!this.canSaveUser()) {
+    if (!this.canSaveUserWithAssignment()) {
       return;
     }
 
@@ -189,6 +199,27 @@ export class AdminPageComponent {
     const password = this.draftPassword();
 
     if (userId === null) {
+      const academicYearId = this.selectedYearId();
+      const classId = Number(this.draftUserClassId());
+
+      if (this.draftRole() === 'class_teacher' && academicYearId && classId) {
+        this.adminApi
+          .createClassTeacherUser({
+            fullName: this.draftFullName().trim(),
+            login: this.draftLogin().trim(),
+            password,
+            role: 'class_teacher',
+            classId,
+            academicYearId,
+          })
+          .subscribe(({ user, assignment }) => {
+            this.users.update((users) => [...users, user]);
+            this.assignments.update((assignments) => [...assignments, assignment]);
+            this.closeUserPanel();
+          });
+        return;
+      }
+
       this.adminApi
         .createUser({
           fullName: this.draftFullName().trim(),
@@ -214,6 +245,14 @@ export class AdminPageComponent {
         this.users.update((users) => users.map((user) => (user.id === userId ? updatedUser : user)));
         this.closeUserPanel();
       });
+  }
+
+  updateDraftRole(role: UserRole): void {
+    this.draftRole.set(role);
+
+    if (role === 'class_teacher' && !this.draftUserClassId()) {
+      this.draftUserClassId.set(this.classOptions()[0]?.value ?? '');
+    }
   }
 
   requestDisableUser(user: AdminUserDto): void {
