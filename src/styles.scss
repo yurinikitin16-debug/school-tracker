@@ -298,6 +298,10 @@ table tbody tr:hover > .cell--changed {
   min-width: 58px;
 }
 
+.attendance-page .meal-label--mobile {
+  display: none;
+}
+
 .attendance-page .combined-total--header span {
   color: var(--color-muted-strong);
   font-size: 12px;
@@ -423,6 +427,15 @@ table tbody tr:hover > .cell--changed {
   .attendance-page .student-name--mobile {
     display: inline;
   }
+
+  .attendance-page .meal-label--desktop {
+    display: none;
+  }
+
+  .attendance-page .meal-label--mobile {
+    display: inline;
+  }
+
 }
 
 @media (min-width: 1200px) {

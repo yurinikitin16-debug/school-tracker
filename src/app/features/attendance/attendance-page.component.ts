@@ -113,6 +113,7 @@ export class AttendancePageComponent {
   readonly isMatrixLoading = signal(false);
   readonly weekLoadFailed = signal(false);
   readonly isSaving = signal(false);
+  readonly isMobileViewport = signal(this.resolveIsMobileViewport());
   readonly failedCellKeys = signal<Set<string>>(new Set());
   readonly tableMode = signal<TableMode>('combined');
 
@@ -547,6 +548,22 @@ export class AttendancePageComponent {
     }
 
     return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Х.' : 'Ні';
+  }
+
+  mealDesktopText(row: AttendanceRow, day: WeekdayColumn): string {
+    if (!day.isSchoolDay || this.statusFor(row, day.id) !== 'present') {
+      return '—';
+    }
+
+    return this.hasMeal(row.student.id, this.toIsoDate(day.date)) ? 'Харч.' : 'Ні';
+  }
+
+  totalHeaderAttendanceLabel(): string {
+    return this.isMobileViewport() ? 'Проп.' : 'Пропуски';
+  }
+
+  totalHeaderMealLabel(): string {
+    return 'Не харч.';
   }
 
   updateTableMode(mode: TableMode): void {
@@ -992,9 +1009,15 @@ export class AttendancePageComponent {
   @HostListener('window:resize')
   @HostListener('window:scroll')
   closeFloatingEditorOnViewportChange(): void {
+    this.isMobileViewport.set(this.resolveIsMobileViewport());
+
     if (this.editingCell()) {
       this.closeCellEditor();
     }
+  }
+
+  private resolveIsMobileViewport(): boolean {
+    return typeof window !== 'undefined' && window.innerWidth <= 760;
   }
 
   private resolveAttendanceDate(date: Date): Date {

@@ -69,8 +69,8 @@
             <th [class.cell--combined]="tableMode() === 'combined'">
               @if (tableMode() === 'combined') {
                 <div class="combined-total combined-total--header">
-                  <span>Пропуски</span>
-                  <span>Не харч.</span>
+                  <span>{{ totalHeaderAttendanceLabel() }}</span>
+                  <span>{{ totalHeaderMealLabel() }}</span>
                 </div>
               } @else {
                 Пропуски
@@ -131,7 +131,8 @@
                         [disabled]="!isMealEditable(row, day)"
                         (click)="toggleMeal(row, day)"
                       >
-                        {{ mealShortText(row, day) }}
+                        <span class="meal-label meal-label--desktop">{{ mealDesktopText(row, day) }}</span>
+                        <span class="meal-label meal-label--mobile">{{ mealShortText(row, day) }}</span>
                       </button>
                     </div>
                   } @else {

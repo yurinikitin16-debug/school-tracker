@@ -75,7 +75,7 @@ export class AdminPageComponent {
   readonly draftClassId = signal('');
 
   readonly roleOptions: UiSelectOption[] = [
-    { label: 'Класний керівник', value: 'class_teacher' },
+    { label: 'Вчитель', value: 'class_teacher' },
     { label: 'Адміністратор', value: 'admin' },
   ];
 
@@ -100,6 +100,7 @@ export class AdminPageComponent {
     const query = this.userSearch().trim().toLowerCase();
 
     return this.users()
+      .filter((user) => user.role === 'admin')
       .filter((user) => !query || `${user.fullName} ${user.login}`.toLowerCase().includes(query))
       .sort((first, second) => first.fullName.localeCompare(second.fullName, 'uk', { sensitivity: 'base' }));
   });
@@ -140,7 +141,7 @@ export class AdminPageComponent {
   readonly canSaveUser = computed(() =>
     !!this.draftFullName().trim() &&
     !!this.draftLogin().trim() &&
-    (this.editingUserId() !== null || this.draftPassword().length >= 8),
+    (this.editingUserId() !== null || !!this.draftPassword()),
   );
   readonly shouldAssignClassOnCreate = computed(
     () => this.editingUserId() === null && this.draftRole() === 'class_teacher',
@@ -348,7 +349,7 @@ export class AdminPageComponent {
   }
 
   roleLabel(role: UserRole): string {
-    return role === 'admin' ? 'Адміністратор' : 'Класний керівник';
+    return role === 'admin' ? 'Адміністратор' : 'Вчитель';
   }
 
   private loadInitialData(): void {

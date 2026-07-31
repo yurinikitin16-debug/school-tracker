@@ -16,6 +16,10 @@ import { Component } from '@angular/core';
       min-width: 0;
       flex-wrap: wrap;
     }
+
+    :host(.toolbar-nowrap) .toolbar {
+      flex-wrap: nowrap;
+    }
   `,
 })
 export class UiToolbarComponent {}

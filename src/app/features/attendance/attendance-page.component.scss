@@ -126,6 +126,17 @@ td {
   vertical-align: middle;
 }
 
+thead th:nth-child(n + 3):not(:last-child),
+tbody td:nth-child(n + 3):not(:last-child),
+tfoot td:nth-child(n + 3):not(:last-child) {
+  border-right-color: #d4deef;
+}
+
+thead .student-column,
+tbody .student-column {
+  border-right-color: #d4deef;
+}
+
 th:last-child,
 td:last-child {
   border-right: 0;
@@ -470,11 +481,17 @@ tfoot td:last-child {
   thead .student-column,
   tbody .student-column {
     left: 36px;
-    border-right-color: transparent;
+    border-right-color: #d4deef;
     box-shadow: 1px 0 0 var(--color-border-soft);
   }
 
-  thead th:last-child,
+  thead th:last-child {
+    position: sticky;
+    right: auto;
+    z-index: 6;
+    box-shadow: none;
+  }
+
   tbody td:last-child {
     position: static;
     right: auto;

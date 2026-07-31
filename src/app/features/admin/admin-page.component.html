@@ -16,7 +16,7 @@
     </article>
   </div>
 
-  <article class="admin-card">
+  <article class="admin-card admin-card--users">
     <header class="admin-card__header">
       <div>
         <h2>Користувачі</h2>
@@ -42,8 +42,6 @@
             <tr>
               <th>ПІБ</th>
               <th>Логін</th>
-              <th>Роль</th>
-              <th>Стан</th>
               <th></th>
             </tr>
           </thead>
@@ -52,12 +50,6 @@
               <tr [class.admin-row--disabled]="!user.isActive">
                 <td><strong>{{ user.fullName }}</strong></td>
                 <td>{{ user.login }}</td>
-                <td>{{ roleLabel(user.role) }}</td>
-                <td>
-                  <span class="status-badge" [class.status-badge--disabled]="!user.isActive">
-                    {{ user.isActive ? 'Активний' : 'Неактивний' }}
-                  </span>
-                </td>
                 <td>
                   <div class="row-actions">
                     <button class="icon-button" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEditUser(user)">
@@ -80,7 +72,7 @@
     }
   </article>
 
-  <article class="admin-card">
+  <article class="admin-card admin-card--assignments">
     <header class="admin-card__header">
       <div>
         <h2>Класні керівники</h2>
@@ -91,7 +83,7 @@
       </button>
     </header>
 
-    <ui-toolbar>
+    <ui-toolbar class="toolbar-nowrap">
       <ui-select
         class="admin-year"
         ariaLabel="Навчальний рік"
@@ -114,8 +106,7 @@
           <thead>
             <tr>
               <th>Клас</th>
-              <th>Класний керівник</th>
-              <th>Стан</th>
+              <th>Вчитель</th>
               <th></th>
             </tr>
           </thead>
@@ -124,7 +115,6 @@
               <tr>
                 <td><strong>{{ row.className }}</strong></td>
                 <td>{{ row.teacherName }}</td>
-                <td><span class="status-badge">Активне</span></td>
                 <td>
                   <div class="row-actions">
                     <button class="icon-button" type="button" title="Редагувати" aria-label="Редагувати" (click)="openEditAssignment(row)">
