@@ -422,6 +422,63 @@ export class WeeklyReportsPageComponent {
     const workbook = XLSX.utils.book_new();
     const classLabel = this.classOptions().find((option) => option.value === this.selectedClassId())?.label ?? '';
     const periodLabel = this.monthOptions().find((option) => option.value === this.selectedMonth())?.label ?? '';
+
+    if (this.selectedView() === 'classes') {
+      const dayLabel = this.selectedClassReportDay() === '-'
+        ? 'Місяць'
+        : this.classReportDayOptions().find((option) => option.value === this.selectedClassReportDay())?.label ?? this.selectedClassReportDay();
+      const summary = this.classReportSummary();
+      const classReportRows = this.selectedClassReportDay() === '-'
+        ? this.classRows().map((row) => [
+          row.className,
+          row.totalAbsences,
+          row.excusedStudents,
+          row.sickStudents,
+          row.noReasonStudents,
+          `${row.presentPercent}%`,
+          `${row.absentPercent}%`,
+          row.totalMeals,
+          `${row.mealPercent}%`,
+        ])
+        : this.classDayRows().map((row) => [
+          row.className,
+          row.totalAbsences,
+          row.excusedAbsences,
+          row.sickAbsences,
+          row.noReasonAbsences,
+          `${row.presentPercent}%`,
+          `${row.absentPercent}%`,
+          row.totalMeals,
+          `${row.mealPercent}%`,
+        ]);
+      const classRows = [
+        ['Звіт по класах'],
+        ['Період', periodLabel],
+        ['День', dayLabel],
+        [],
+        ['Загалом', summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`],
+        [],
+        ['Клас', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування'],
+        ...classReportRows,
+      ];
+      const classSheet = XLSX.utils.aoa_to_sheet(classRows);
+      classSheet['!cols'] = [
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 14 },
+        { wch: 14 },
+      ];
+      classSheet['!autofilter'] = { ref: `A7:I${Math.max(7, classRows.length)}` };
+      XLSX.utils.book_append_sheet(workbook, classSheet, 'По класах');
+      XLSX.writeFile(workbook, `school-class-report-${this.selectedMonth()}-${this.selectedClassReportDay()}.xlsx`);
+      return;
+    }
+
     const overviewRows = [
       ['Звіт пропусків'],
       ['Клас', classLabel],

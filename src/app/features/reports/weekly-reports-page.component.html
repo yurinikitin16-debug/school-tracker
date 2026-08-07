@@ -342,8 +342,13 @@
 
   <section class="report-export-panel" aria-label="Експорт звіту">
     <div>
-      <strong>Експорт повного звіту</strong>
-      <span>Excel файл міститиме огляд, учнів і класи за вибраними фільтрами.</span>
+      @if (selectedView() === 'classes') {
+        <strong>Експорт по класах</strong>
+        <span>Excel файл міститиме поточну таблицю класів з підсумком зверху.</span>
+      } @else {
+        <strong>Експорт повного звіту</strong>
+        <span>Excel файл міститиме огляд та харчування за вибраними фільтрами.</span>
+      }
     </div>
     <button class="report-export" type="button" (click)="exportReport()">
       <ui-icon name="download" />
