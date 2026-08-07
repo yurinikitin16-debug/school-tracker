@@ -32,9 +32,6 @@
     <button type="button" [class.report-tabs__button--active]="selectedView() === 'classes'" (click)="updateView('classes')">
       По класах
     </button>
-    <button type="button" [class.report-tabs__button--active]="selectedView() === 'meals'" (click)="updateView('meals')">
-      Харчування
-    </button>
   </nav>
 
   @if (selectedView() === 'overview') {
@@ -191,123 +188,153 @@
       }
 
     </article>
-  } @else if (selectedView() === 'meals') {
-    <div class="reports-stats">
-      <ui-stat-card label="Всього учнів" [value]="summary().totalStudents" icon="users" tone="primary" [centered]="true" />
-      <ui-stat-card label="Харчувались разів" [value]="mealSummary().totalMeals" icon="check" tone="success" [centered]="true" />
-      <ui-stat-card label="Не харчувались разів" [value]="mealSummary().missedMeals" icon="x" tone="danger" [centered]="true" />
-      <ui-stat-card label="% харчування" [value]="mealSummary().mealPercent + '%'" icon="chart" tone="warning" [centered]="true" />
-    </div>
-
-    <article class="report-table-card meal-dashboard-card">
-      <header class="report-table-card__header">
-        <div>
-          <h2>Підсумок харчування</h2>
-          <p>Агреговані показники за вибраний місяць до сьогодні включно</p>
-        </div>
-      </header>
-
-      <div class="meal-dashboard">
-        <section class="meal-dashboard__item">
-          <span>Учнів, які не харчувались хоча б раз</span>
-          <strong [class.report-number--danger]="mealSummary().studentsWithoutMeals > 0">{{ mealSummary().studentsWithoutMeals }}</strong>
-        </section>
-        <section class="meal-dashboard__item">
-          <span>Днів зі 100% харчуванням</span>
-          <strong class="report-number--success">{{ mealSummary().fullMealDays }}</strong>
-        </section>
-        <section class="meal-dashboard__item">
-          <span>Найбільше не харчувались</span>
-          @if (mealSummary().worstDay; as day) {
-            <strong [class.report-number--danger]="mealSummary().worstDayMissedMeals > 0">
-              {{ mealSummary().worstDayMissedMeals }}
-            </strong>
-            <em>{{ formatDate(day.date) }}</em>
-          } @else {
-            <strong>0</strong>
-            <em>Даних немає</em>
-          }
-        </section>
-        <section class="meal-dashboard__item">
-          <span>Можливих відміток харчування</span>
-          <strong>{{ mealSummary().possibleMeals }}</strong>
-        </section>
-      </div>
-    </article>
   } @else {
-    <article class="report-table-card">
+    <article class="report-table-card class-report-card">
       <header class="report-table-card__header">
         <div>
-          <h2>Неявки по класах</h2>
+          <h2>Пропуски по класах</h2>
           <p>Порівняння класів за вибраний період</p>
         </div>
+        <ui-select
+          class="report-control report-control--day"
+          ariaLabel="День звіту"
+          [options]="classReportDayOptions()"
+          [value]="selectedClassReportDay()"
+          (valueChange)="updateClassReportDay($event)"
+        />
       </header>
 
-      <div class="report-table-wrap">
+      <div class="class-report-summary" aria-label="Підсумок по класах">
         <table class="class-report-table">
           <thead>
             <tr>
-              <th rowspan="2">Клас</th>
-              <th rowspan="2">Всього пропусків</th>
-              <th rowspan="2">п/п</th>
-              <th rowspan="2">хв.</th>
-              <th rowspan="2">б.п.</th>
-              <th colspan="2">%</th>
-            </tr>
-            <tr>
-              <th>
-                <span
-                  class="report-tooltip"
-                  tabindex="0"
-                  aria-label="Присутні — це учні без жодного пропуску за вибраний період. Відсоток дорівнює 100 мінус відсоток учнів, які мали хоча б один пропуск."
-                >
-                  Присутні
-                  <span class="report-tooltip__icon" aria-hidden="true">?</span>
-                  <span class="report-tooltip__content" role="tooltip">
-                    Учні без жодного пропуску за вибраний період. Формула: 100% мінус відсоток учнів, які мали хоча б один пропуск.
-                  </span>
-                </span>
-              </th>
-              <th>
-                <span
-                  class="report-tooltip report-tooltip--right"
-                  tabindex="0"
-                  aria-label="Відсутні — це учні, які мали хоча б один пропуск за вибраний період. Відсоток дорівнює кількості таких учнів, поділеній на загальну кількість учнів класу."
-                >
-                  Відсутні
-                  <span class="report-tooltip__icon" aria-hidden="true">?</span>
-                  <span class="report-tooltip__content" role="tooltip">
-                    Учні, які мали хоча б один пропуск за вибраний період. Формула: кількість таких учнів ÷ кількість учнів класу × 100%.
-                  </span>
-                </span>
-              </th>
+              <th></th>
+              <th>Всього</th>
+              <th>п/п</th>
+              <th>хв.</th>
+              <th>б.п.</th>
+              <th>Присутні</th>
+              <th>Відсутні</th>
+              <th>Харчувались</th>
+              <th>% харчування</th>
             </tr>
           </thead>
           <tbody>
-            @for (row of classRows(); track row.className) {
-              <tr>
-                <td><strong>{{ row.className }}</strong></td>
-                <td>
-                  <button
-                    class="report-value"
-                    type="button"
-                    [class.report-value--warning]="row.totalAbsences > 0"
-                    [disabled]="!row.totalAbsences"
-                    [attr.aria-label]="'Показати учнів з пропусками у класі ' + row.className"
-                    (click)="openClassReport(row)"
-                  >
-                    {{ row.totalAbsences }}
-                  </button>
-                </td>
-                <td><strong [class.report-number--info]="row.excusedStudents > 0">{{ row.excusedStudents }}</strong></td>
-                <td><strong [class.report-number--warning]="row.sickStudents > 0">{{ row.sickStudents }}</strong></td>
-                <td><strong [class.report-number--danger]="row.noReasonStudents > 0">{{ row.noReasonStudents }}</strong></td>
-                <td><strong class="report-number--success">{{ row.presentPercent }}%</strong></td>
-                <td><strong [class.report-number--danger]="row.absentPercent > 0">{{ row.absentPercent }}%</strong></td>
-              </tr>
-            }
+            <tr>
+              <th>Загалом</th>
+              <td>
+                <strong [class.report-number--danger]="classReportSummary().totalAbsences > 0">{{ classReportSummary().totalAbsences }}</strong>
+              </td>
+              <td>
+                <strong [class.report-number--info]="classReportSummary().excusedAbsences > 0">{{ classReportSummary().excusedAbsences }}</strong>
+              </td>
+              <td>
+                <strong [class.report-number--warning]="classReportSummary().sickAbsences > 0">{{ classReportSummary().sickAbsences }}</strong>
+              </td>
+              <td>
+                <strong [class.report-number--danger]="classReportSummary().noReasonAbsences > 0">{{ classReportSummary().noReasonAbsences }}</strong>
+              </td>
+              <td><strong class="report-number--success">{{ classReportSummary().presentPercent }}%</strong></td>
+              <td><strong [class.report-number--danger]="classReportSummary().absentPercent > 0">{{ classReportSummary().absentPercent }}%</strong></td>
+              <td><strong class="report-number--success">{{ classReportSummary().totalMeals }}</strong></td>
+              <td><strong class="report-number--success">{{ classReportSummary().mealPercent }}%</strong></td>
+            </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="report-table-wrap">
+        @if (selectedClassReportDay() === '-') {
+          <table class="class-report-table">
+            <thead>
+              <tr>
+                <th rowspan="2">Клас</th>
+                <th rowspan="2">Всього пропусків</th>
+                <th rowspan="2">п/п</th>
+                <th rowspan="2">хв.</th>
+                <th rowspan="2">б.п.</th>
+                <th colspan="2">%</th>
+                <th rowspan="2">Харчувались</th>
+                <th rowspan="2">% харчування</th>
+              </tr>
+              <tr>
+                <th>Присутні</th>
+                <th>Відсутні</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of classRows(); track row.className) {
+                <tr>
+                  <td><strong>{{ row.className }}</strong></td>
+                  <td>
+                    <button
+                      class="report-value"
+                      type="button"
+                      [class.report-value--warning]="row.totalAbsences > 0"
+                      [disabled]="!row.totalAbsences"
+                      [attr.aria-label]="'Показати учнів з пропусками у класі ' + row.className"
+                      (click)="openClassReport(row)"
+                    >
+                      {{ row.totalAbsences }}
+                    </button>
+                  </td>
+                  <td><strong [class.report-number--info]="row.excusedStudents > 0">{{ row.excusedStudents }}</strong></td>
+                  <td><strong [class.report-number--warning]="row.sickStudents > 0">{{ row.sickStudents }}</strong></td>
+                  <td><strong [class.report-number--danger]="row.noReasonStudents > 0">{{ row.noReasonStudents }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.presentPercent }}%</strong></td>
+                  <td><strong [class.report-number--danger]="row.absentPercent > 0">{{ row.absentPercent }}%</strong></td>
+                  <td><strong class="report-number--success">{{ row.totalMeals }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.mealPercent }}%</strong></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <table class="class-report-table">
+            <thead>
+              <tr>
+                <th rowspan="2">Клас</th>
+                <th rowspan="2">Всього пропусків</th>
+                <th rowspan="2">п/п</th>
+                <th rowspan="2">хв.</th>
+                <th rowspan="2">б.п.</th>
+                <th colspan="2">%</th>
+                <th rowspan="2">Харчувались</th>
+                <th rowspan="2">% харчування</th>
+              </tr>
+              <tr>
+                <th>Присутні</th>
+                <th>Відсутні</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of classDayRows(); track row.className) {
+                <tr>
+                  <td><strong>{{ row.className }}</strong></td>
+                  <td>
+                    <button
+                      class="report-value"
+                      type="button"
+                      [class.report-value--warning]="row.totalAbsences > 0"
+                      [disabled]="!row.totalAbsences"
+                      [attr.aria-label]="'Показати учнів з пропусками у класі ' + row.className"
+                      (click)="openClassReport(row)"
+                    >
+                      {{ row.totalAbsences }}
+                    </button>
+                  </td>
+                  <td><strong [class.report-number--info]="row.excusedAbsences > 0">{{ row.excusedAbsences }}</strong></td>
+                  <td><strong [class.report-number--warning]="row.sickAbsences > 0">{{ row.sickAbsences }}</strong></td>
+                  <td><strong [class.report-number--danger]="row.noReasonAbsences > 0">{{ row.noReasonAbsences }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.presentPercent }}%</strong></td>
+                  <td><strong [class.report-number--danger]="row.absentPercent > 0">{{ row.absentPercent }}%</strong></td>
+                  <td><strong class="report-number--success">{{ row.totalMeals }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.mealPercent }}%</strong></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
       </div>
 
     </article>

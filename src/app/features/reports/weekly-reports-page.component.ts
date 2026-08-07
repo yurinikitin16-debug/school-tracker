@@ -15,10 +15,9 @@ import { UiIconComponent } from '../../shared/ui/icon/ui-icon.component';
 import { UiInputComponent } from '../../shared/ui/input/ui-input.component';
 import { UiPageHeaderComponent } from '../../shared/ui/page-header/ui-page-header.component';
 import { UiSelectComponent, UiSelectOption } from '../../shared/ui/select/ui-select.component';
-import { UiStatCardComponent } from '../../shared/ui/stat-card/ui-stat-card.component';
 import { UiToolbarComponent } from '../../shared/ui/toolbar/ui-toolbar.component';
 
-type ReportView = 'overview' | 'classes' | 'meals';
+type ReportView = 'overview' | 'classes';
 
 interface ReportStudent {
   id: number;
@@ -52,9 +51,43 @@ interface ClassReportRow {
   sickStudents: number;
   noReasonStudents: number;
   missedMeals: number;
+  totalMeals: number;
+  mealPercent: number;
   presentPercent: number;
   absentPercent: number;
   studentIds: number[];
+}
+
+interface ClassDayReportRow {
+  classId: number;
+  className: string;
+  totalStudents: number;
+  totalAbsences: number;
+  excusedAbsences: number;
+  sickAbsences: number;
+  noReasonAbsences: number;
+  totalMeals: number;
+  mealPercent: number;
+  presentPercent: number;
+  absentPercent: number;
+  studentIds: number[];
+}
+
+interface ClassReportSelection {
+  className: string;
+  totalAbsences: number;
+  studentIds: number[];
+}
+
+interface ClassReportSummary {
+  totalAbsences: number;
+  excusedAbsences: number;
+  sickAbsences: number;
+  noReasonAbsences: number;
+  totalMeals: number;
+  mealPercent: number;
+  presentPercent: number;
+  absentPercent: number;
 }
 
 @Component({
@@ -66,7 +99,6 @@ interface ClassReportRow {
     UiInputComponent,
     UiPageHeaderComponent,
     UiSelectComponent,
-    UiStatCardComponent,
     UiToolbarComponent,
   ],
   templateUrl: './weekly-reports-page.component.html',
@@ -81,8 +113,9 @@ export class WeeklyReportsPageComponent {
   readonly matrices = signal<AttendanceWeekMatrixDto[]>([]);
   readonly selectedClassId = signal<string>('');
   readonly selectedMonth = signal('');
+  readonly selectedClassReportDay = signal('-');
   readonly selectedView = signal<ReportView>('overview');
-  readonly selectedClassReport = signal<ClassReportRow | null>(null);
+  readonly selectedClassReport = signal<ClassReportSelection | null>(null);
   readonly searchTerm = signal('');
   readonly isLoading = signal(false);
   readonly loadFailed = signal(false);
@@ -104,6 +137,14 @@ export class WeeklyReportsPageComponent {
     return year ? this.buildMonthOptions(year.startsOn, year.endsOn) : [];
   });
 
+  readonly classReportDayOptions = computed<UiSelectOption[]>(() => [
+    { label: '-', value: '-' },
+    ...this.schoolOverviewDays().map((day) => ({
+      label: this.formatDate(day.date),
+      value: day.date,
+    })),
+  ]);
+
   readonly overviewDays = computed<OverviewDay[]>(() =>
     this.buildOverviewDates().map((date, index) => {
       const dayDate = new Date(`${date}T12:00:00`);
@@ -124,7 +165,7 @@ export class WeeklyReportsPageComponent {
   readonly overviewRows = computed(() => {
     const query = this.searchTerm().trim().toLowerCase();
 
-    return this.reportStudents()
+    return this.selectedReportStudents()
       .filter((student) => !query || this.studentName(student).toLowerCase().includes(query))
       .sort((first, second) => this.studentName(first).localeCompare(this.studentName(second), 'uk'));
   });
@@ -148,6 +189,8 @@ export class WeeklyReportsPageComponent {
       const sickStudents = this.classStudentsWithStatus(students, 'SICK');
       const noReasonStudents = this.classStudentsWithStatus(students, 'ABSENT_NO_REASON');
       const missedMeals = students.reduce((total, student) => total + this.mealStudentTotal(student), 0);
+      const possibleMeals = students.length * this.schoolOverviewDays().length;
+      const totalMeals = Math.max(0, possibleMeals - missedMeals);
       const absentPercent = students.length ? Math.round((studentIds.length / students.length) * 100) : 0;
 
       return {
@@ -160,6 +203,8 @@ export class WeeklyReportsPageComponent {
         sickStudents,
         noReasonStudents,
         missedMeals,
+        totalMeals,
+        mealPercent: possibleMeals ? Math.round((totalMeals / possibleMeals) * 100) : 0,
         presentPercent: students.length ? 100 - absentPercent : 0,
         absentPercent,
         studentIds,
@@ -167,31 +212,76 @@ export class WeeklyReportsPageComponent {
     }),
   );
 
-  readonly mealSummary = computed(() => {
-    const students = this.overviewRows();
-    const schoolDays = this.mealSummaryDays();
-    const possibleMeals = students.length * schoolDays.length;
-    const missedMeals = students.reduce((total, student) => total + this.mealStudentTotalForDays(student, schoolDays), 0);
-    const totalMeals = Math.max(0, possibleMeals - missedMeals);
-    const studentsWithoutMeals = students.filter((student) => this.mealStudentTotalForDays(student, schoolDays) > 0).length;
-    const fullMealDays = schoolDays.filter((day) => this.mealDayTotal(day.date) === 0).length;
-    const worstDay = schoolDays.reduce<OverviewDay | null>((worst, day) => {
-      if (!worst) {
-        return day;
-      }
+  readonly classDayRows = computed<ClassDayReportRow[]>(() => {
+    const selectedDay = this.selectedClassReportDay();
 
-      return this.mealDayTotal(day.date) > this.mealDayTotal(worst.date) ? day : worst;
-    }, null);
+    if (selectedDay === '-') {
+      return [];
+    }
+
+    return this.activeClasses().map((schoolClass) => {
+      const students = this.reportStudents().filter((student) => student.classId === schoolClass.id);
+      const absentStudents = students.filter((student) => {
+        const state = this.dayState(student, selectedDay);
+        return !!state && state.attendance !== 'PRESENT';
+      });
+      const totalAbsences = absentStudents.length;
+      const absentPercent = students.length ? Math.round((totalAbsences / students.length) * 100) : 0;
+      const totalMeals = students.filter((student) => this.dayState(student, selectedDay)?.meal).length;
+
+      return {
+        classId: schoolClass.id,
+        className: schoolClass.name,
+        totalStudents: students.length,
+        totalAbsences,
+        excusedAbsences: absentStudents.filter((student) => this.dayState(student, selectedDay)?.attendance === 'EXCUSED').length,
+        sickAbsences: absentStudents.filter((student) => this.dayState(student, selectedDay)?.attendance === 'SICK').length,
+        noReasonAbsences: absentStudents.filter((student) => this.dayState(student, selectedDay)?.attendance === 'ABSENT_NO_REASON').length,
+        totalMeals,
+        mealPercent: students.length ? Math.round((totalMeals / students.length) * 100) : 0,
+        presentPercent: students.length ? 100 - absentPercent : 0,
+        absentPercent,
+        studentIds: absentStudents.map((student) => student.id),
+      };
+    });
+  });
+
+  readonly classReportSummary = computed<ClassReportSummary>(() => {
+    if (this.selectedClassReportDay() === '-') {
+      const rows = this.classRows();
+      const totalStudents = rows.reduce((total, row) => total + row.totalStudents, 0);
+      const studentsWithAbsences = rows.reduce((total, row) => total + row.studentsWithAbsences, 0);
+      const absentPercent = totalStudents ? Math.round((studentsWithAbsences / totalStudents) * 100) : 0;
+
+      return {
+        totalAbsences: rows.reduce((total, row) => total + row.totalAbsences, 0),
+        excusedAbsences: rows.reduce((total, row) => total + row.excusedStudents, 0),
+        sickAbsences: rows.reduce((total, row) => total + row.sickStudents, 0),
+        noReasonAbsences: rows.reduce((total, row) => total + row.noReasonStudents, 0),
+        totalMeals: rows.reduce((total, row) => total + row.totalMeals, 0),
+        mealPercent: this.percent(
+          rows.reduce((total, row) => total + row.totalMeals, 0),
+          totalStudents * this.schoolOverviewDays().length,
+        ),
+        presentPercent: totalStudents ? 100 - absentPercent : 0,
+        absentPercent,
+      };
+    }
+
+    const rows = this.classDayRows();
+    const totalStudents = rows.reduce((total, row) => total + row.totalStudents, 0);
+    const totalAbsences = rows.reduce((total, row) => total + row.totalAbsences, 0);
+    const absentPercent = totalStudents ? Math.round((totalAbsences / totalStudents) * 100) : 0;
 
     return {
-      studentsWithoutMeals,
-      totalMeals,
-      missedMeals,
-      possibleMeals,
-      mealPercent: possibleMeals ? Math.round((totalMeals / possibleMeals) * 100) : 0,
-      fullMealDays,
-      worstDay,
-      worstDayMissedMeals: worstDay ? this.mealDayTotal(worstDay.date) : 0,
+      totalAbsences,
+      excusedAbsences: rows.reduce((total, row) => total + row.excusedAbsences, 0),
+      sickAbsences: rows.reduce((total, row) => total + row.sickAbsences, 0),
+      noReasonAbsences: rows.reduce((total, row) => total + row.noReasonAbsences, 0),
+      totalMeals: rows.reduce((total, row) => total + row.totalMeals, 0),
+      mealPercent: this.percent(rows.reduce((total, row) => total + row.totalMeals, 0), totalStudents),
+      presentPercent: totalStudents ? 100 - absentPercent : 0,
+      absentPercent,
     };
   });
 
@@ -226,6 +316,15 @@ export class WeeklyReportsPageComponent {
         this.loadReportData();
       }
     });
+
+    effect(() => {
+      const options = this.classReportDayOptions();
+      const selectedDay = this.selectedClassReportDay();
+
+      if (selectedDay !== '-' && !options.some((option) => option.value === selectedDay)) {
+        this.selectedClassReportDay.set('-');
+      }
+    });
   }
 
   updateClass(classId: string): void {
@@ -235,14 +334,19 @@ export class WeeklyReportsPageComponent {
 
   updateMonth(month: string): void {
     this.selectedMonth.set(month);
+    this.selectedClassReportDay.set('-');
   }
 
   updateView(view: ReportView): void {
     this.selectedView.set(view);
   }
 
-  openClassReport(row: ClassReportRow): void {
-    if (row.studentsWithAbsences) {
+  updateClassReportDay(day: string): void {
+    this.selectedClassReportDay.set(day);
+  }
+
+  openClassReport(row: ClassReportSelection): void {
+    if (row.totalAbsences) {
       this.selectedClassReport.set(row);
     }
   }
@@ -384,7 +488,7 @@ export class WeeklyReportsPageComponent {
   }
 
   private loadReportData(): void {
-    const classIds = this.selectedReportClassIds();
+    const classIds = this.activeClasses().map((schoolClass) => schoolClass.id);
     const weekStarts = this.weekStartsForSelectedMonth();
 
     if (!classIds.length || !weekStarts.length) {
@@ -437,6 +541,11 @@ export class WeeklyReportsPageComponent {
     return [...students.values()];
   }
 
+  private selectedReportStudents(): ReportStudent[] {
+    const classIds = new Set(this.selectedReportClassIds());
+    return this.reportStudents().filter((student) => classIds.has(student.classId));
+  }
+
   private mapStudent(student: AttendanceWeekStudentDto, classId: number, className: string): ReportStudent {
     return {
       id: student.id,
@@ -460,19 +569,14 @@ export class WeeklyReportsPageComponent {
     return this.overviewDays().filter((day) => day.isSchoolDay);
   }
 
-  private mealSummaryDays(): OverviewDay[] {
-    const today = this.toIsoDate(new Date());
-    return this.schoolOverviewDays().filter((day) => day.date <= today);
-  }
-
-  private mealStudentTotalForDays(student: ReportStudent, days: OverviewDay[]): number {
-    return days.filter((day) => this.mealCell(student, day.date).tone !== 'present').length;
-  }
-
   private classStudentsWithStatus(students: ReportStudent[], status: Exclude<AttendanceApiStatus, 'PRESENT'>): number {
     return students.filter((student) =>
       this.schoolOverviewDays().some((day) => this.dayState(student, day.date)?.attendance === status),
     ).length;
+  }
+
+  private percent(value: number, total: number): number {
+    return total ? Math.round((value / total) * 100) : 0;
   }
 
   private buildMonthOptions(startsOn: string, endsOn: string): UiSelectOption[] {

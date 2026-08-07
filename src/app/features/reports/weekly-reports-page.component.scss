@@ -20,12 +20,6 @@
   flex: 1;
 }
 
-.reports-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 14px;
-}
-
 .report-tabs {
   display: inline-flex;
   width: fit-content;
@@ -65,6 +59,55 @@
   padding: 18px 18px 12px;
 }
 
+.class-report-card .report-table-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.report-control--day {
+  width: 220px;
+  flex: 0 0 220px;
+}
+
+.class-report-summary {
+  padding: 0 18px 10px;
+  overflow-x: auto;
+}
+
+.class-report-summary .class-report-table {
+  min-width: 520px;
+}
+
+.class-report-summary th,
+.class-report-summary td {
+  background: #f8faff;
+  border-bottom: 0;
+}
+
+.class-report-summary thead th {
+  padding-bottom: 4px;
+  font-size: 11px;
+}
+
+.class-report-summary tbody th,
+.class-report-summary tbody td {
+  padding-top: 4px;
+}
+
+.class-report-summary th {
+  text-align: center;
+}
+
+.class-report-summary strong {
+  font-size: 20px;
+}
+
+.class-report-table {
+  table-layout: fixed;
+}
+
 h2,
 p {
   margin: 0;
@@ -85,31 +128,6 @@ p {
   max-height: calc(100vh - 300px);
   overflow: auto;
   border-top: 1px solid var(--color-border-soft);
-}
-
-.meal-dashboard {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
-  border-top: 1px solid var(--color-border-soft);
-}
-
-.meal-dashboard__item {
-  display: grid;
-  gap: 8px;
-  place-items: center;
-  padding: 16px;
-}
-
-.meal-dashboard__item strong {
-  font-size: 34px;
-}
-
-.meal-dashboard__item span,
-.meal-dashboard__item em {
-  color: var(--color-muted);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
 }
 
 .overview-month-table {
@@ -344,60 +362,6 @@ th {
   font-weight: 900;
 }
 
-.report-tooltip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  outline: none;
-}
-
-.report-tooltip__icon {
-  display: inline-grid;
-  width: 16px;
-  height: 16px;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  font-size: 10px;
-  line-height: 1;
-}
-
-.report-tooltip__content {
-  position: absolute;
-  z-index: 10;
-  top: calc(100% + 9px);
-  left: 50%;
-  width: 260px;
-  padding: 9px 11px;
-  border-radius: 6px;
-  background: #243047;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0;
-  pointer-events: none;
-  text-align: left;
-  transform: translate(-50%, -4px);
-}
-
-.report-tooltip--right .report-tooltip__content {
-  right: 0;
-  left: auto;
-  transform: translateY(-4px);
-}
-
-.report-tooltip:hover .report-tooltip__content,
-.report-tooltip:focus .report-tooltip__content {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-.report-tooltip--right:hover .report-tooltip__content,
-.report-tooltip--right:focus .report-tooltip__content {
-  transform: translateY(0);
-}
-
 tr:last-child td {
   border-bottom: 0;
 }
@@ -526,12 +490,13 @@ tr:last-child td {
     min-width: 100%;
   }
 
-  .reports-stats {
-    grid-template-columns: 1fr;
+  .class-report-card .report-table-card__header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .meal-dashboard {
-    grid-template-columns: 1fr;
+  .report-control--day {
+    flex: 1 1 auto;
   }
 
   .report-tabs {

@@ -137,7 +137,7 @@
 
   <ui-side-panel [open]="isUserPanelOpen()" [title]="userPanelTitle()" (closed)="closeUserPanel()">
     <form class="admin-form" (ngSubmit)="saveUser()">
-      <ui-input label="ПІБ" [value]="draftFullName()" [autofocus]="true" (valueChange)="draftFullName.set($event)" />
+      <ui-input label="Прізвище Ім'я" [value]="draftFullName()" [autofocus]="true" (valueChange)="updateDraftFullName($event)" />
       <ui-input label="Логін" [value]="draftLogin()" (valueChange)="draftLogin.set($event)" />
       <ui-input
         [label]="editingUserId() === null ? 'Пароль' : 'Новий пароль'"

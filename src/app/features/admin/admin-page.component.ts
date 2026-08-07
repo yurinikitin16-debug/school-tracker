@@ -191,6 +191,14 @@ export class AdminPageComponent {
     this.draftUserClassId.set('');
   }
 
+  updateDraftFullName(value: string): void {
+    this.draftFullName.set(value);
+
+    if (this.editingUserId() === null) {
+      this.draftLogin.set(this.toLogin(value));
+    }
+  }
+
   saveUser(): void {
     if (!this.canSaveUserWithAssignment()) {
       return;
@@ -350,6 +358,60 @@ export class AdminPageComponent {
 
   roleLabel(role: UserRole): string {
     return role === 'admin' ? 'Адміністратор' : 'Вчитель';
+  }
+
+  private toLogin(value: string): string {
+    const map: Record<string, string> = {
+      а: 'a',
+      б: 'b',
+      в: 'v',
+      г: 'h',
+      ґ: 'g',
+      д: 'd',
+      е: 'e',
+      є: 'ye',
+      ж: 'zh',
+      з: 'z',
+      и: 'y',
+      і: 'i',
+      ї: 'yi',
+      й: 'i',
+      к: 'k',
+      л: 'l',
+      м: 'm',
+      н: 'n',
+      о: 'o',
+      п: 'p',
+      р: 'r',
+      с: 's',
+      т: 't',
+      у: 'u',
+      ф: 'f',
+      х: 'kh',
+      ц: 'ts',
+      ч: 'ch',
+      ш: 'sh',
+      щ: 'shch',
+      ь: '',
+      ю: 'yu',
+      я: 'ya',
+      ы: 'y',
+      э: 'e',
+      ё: 'yo',
+      ъ: '',
+    };
+
+    return value
+      .trim()
+      .toLowerCase()
+      .split('')
+      .map((char) => map[char] ?? char)
+      .join('')
+      .replace(/['’`ʼ-]+/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
   }
 
   private loadInitialData(): void {
