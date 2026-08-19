@@ -79,6 +79,35 @@
           </tr>
         </thead>
         <tbody>
+          @if (tableMode() !== 'meals') {
+            <tr class="day-confirm-row">
+              <td class="row-number-cell"></td>
+              <td class="student-column">
+                <span class="day-confirm-row__title">Присутні всі</span>
+              </td>
+              @for (day of visibleDays(); track day.id) {
+                <td
+                  [class.cell--disabled]="!day.isSchoolDay"
+                  [class.cell--combined]="tableMode() === 'combined'"
+                >
+                  @if (day.isSchoolDay) {
+                    <label class="day-confirm-control">
+                      <input
+                        type="checkbox"
+                        [checked]="isAllPresentDayChecked(day)"
+                        [disabled]="isSaving()"
+                        (change)="toggleAllPresentDay(day, $any($event.target).checked)"
+                      />
+                      <span>Присутні всі</span>
+                    </label>
+                  } @else {
+                    <span class="status-cell status-cell--disabled">—</span>
+                  }
+                </td>
+              }
+              <td [class.cell--combined]="tableMode() === 'combined'"></td>
+            </tr>
+          }
           @for (row of rows(); track row.student.id; let rowIndex = $index) {
             <tr>
               <td class="row-number-cell">{{ rowIndex + 1 }}</td>

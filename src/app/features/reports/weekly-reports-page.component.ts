@@ -61,6 +61,7 @@ interface ClassReportRow {
 interface ClassDayReportRow {
   classId: number;
   className: string;
+  attendanceConfirmed: boolean;
   totalStudents: number;
   totalAbsences: number;
   excusedAbsences: number;
@@ -80,6 +81,7 @@ interface ClassReportSelection {
 }
 
 interface ClassReportSummary {
+  confirmedClasses: number;
   totalAbsences: number;
   excusedAbsences: number;
   sickAbsences: number;
@@ -108,6 +110,7 @@ export class WeeklyReportsPageComponent {
   private readonly academicYear = inject(AcademicYearService);
   private readonly attendanceApi = inject(AttendanceApiService);
   private readonly classesApi = inject(ClassesApiService);
+  private autoSelectedClassReportMonth = '';
 
   readonly classes = signal<ClassDto[]>([]);
   readonly matrices = signal<AttendanceWeekMatrixDto[]>([]);
@@ -232,6 +235,7 @@ export class WeeklyReportsPageComponent {
       return {
         classId: schoolClass.id,
         className: schoolClass.name,
+        attendanceConfirmed: this.classDayConfirmation(schoolClass.id, selectedDay),
         totalStudents: students.length,
         totalAbsences,
         excusedAbsences: absentStudents.filter((student) => this.dayState(student, selectedDay)?.attendance === 'EXCUSED').length,
@@ -254,6 +258,7 @@ export class WeeklyReportsPageComponent {
       const absentPercent = totalStudents ? Math.round((studentsWithAbsences / totalStudents) * 100) : 0;
 
       return {
+        confirmedClasses: 0,
         totalAbsences: rows.reduce((total, row) => total + row.totalAbsences, 0),
         excusedAbsences: rows.reduce((total, row) => total + row.excusedStudents, 0),
         sickAbsences: rows.reduce((total, row) => total + row.sickStudents, 0),
@@ -274,6 +279,7 @@ export class WeeklyReportsPageComponent {
     const absentPercent = totalStudents ? Math.round((totalAbsences / totalStudents) * 100) : 0;
 
     return {
+      confirmedClasses: rows.filter((row) => row.attendanceConfirmed).length,
       totalAbsences,
       excusedAbsences: rows.reduce((total, row) => total + row.excusedAbsences, 0),
       sickAbsences: rows.reduce((total, row) => total + row.sickAbsences, 0),
@@ -320,9 +326,16 @@ export class WeeklyReportsPageComponent {
     effect(() => {
       const options = this.classReportDayOptions();
       const selectedDay = this.selectedClassReportDay();
+      const selectedMonth = this.selectedMonth();
 
       if (selectedDay !== '-' && !options.some((option) => option.value === selectedDay)) {
-        this.selectedClassReportDay.set('-');
+        this.selectedClassReportDay.set(this.defaultClassReportDay(options));
+        return;
+      }
+
+      if (selectedDay === '-' && selectedMonth && this.autoSelectedClassReportMonth !== selectedMonth) {
+        this.autoSelectedClassReportMonth = selectedMonth;
+        this.selectedClassReportDay.set(this.defaultClassReportDay(options));
       }
     });
   }
@@ -424,11 +437,12 @@ export class WeeklyReportsPageComponent {
     const periodLabel = this.monthOptions().find((option) => option.value === this.selectedMonth())?.label ?? '';
 
     if (this.selectedView() === 'classes') {
-      const dayLabel = this.selectedClassReportDay() === '-'
+      const isDayReport = this.selectedClassReportDay() !== '-';
+      const dayLabel = !isDayReport
         ? 'Місяць'
         : this.classReportDayOptions().find((option) => option.value === this.selectedClassReportDay())?.label ?? this.selectedClassReportDay();
       const summary = this.classReportSummary();
-      const classReportRows = this.selectedClassReportDay() === '-'
+      const classReportRows = !isDayReport
         ? this.classRows().map((row) => [
           row.className,
           row.totalAbsences,
@@ -442,6 +456,7 @@ export class WeeklyReportsPageComponent {
         ])
         : this.classDayRows().map((row) => [
           row.className,
+          row.attendanceConfirmed ? 'Так' : 'Ні',
           row.totalAbsences,
           row.excusedAbsences,
           row.sickAbsences,
@@ -456,14 +471,19 @@ export class WeeklyReportsPageComponent {
         ['Період', periodLabel],
         ['День', dayLabel],
         [],
-        ['Загалом', summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`],
+        isDayReport
+          ? ['Загалом', summary.confirmedClasses, summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`]
+          : ['Загалом', summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`],
         [],
-        ['Клас', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування'],
+        isDayReport
+          ? ['Клас', 'Підтверджено', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування']
+          : ['Клас', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування'],
         ...classReportRows,
       ];
       const classSheet = XLSX.utils.aoa_to_sheet(classRows);
       classSheet['!cols'] = [
         { wch: 14 },
+        ...(isDayReport ? [{ wch: 14 }] : []),
         { wch: 18 },
         { wch: 8 },
         { wch: 8 },
@@ -473,7 +493,7 @@ export class WeeklyReportsPageComponent {
         { wch: 14 },
         { wch: 14 },
       ];
-      classSheet['!autofilter'] = { ref: `A7:I${Math.max(7, classRows.length)}` };
+      classSheet['!autofilter'] = { ref: `A7:${isDayReport ? 'J' : 'I'}${Math.max(7, classRows.length)}` };
       XLSX.utils.book_append_sheet(workbook, classSheet, 'По класах');
       XLSX.writeFile(workbook, `school-class-report-${this.selectedMonth()}-${this.selectedClassReportDay()}.xlsx`);
       return;
@@ -622,6 +642,13 @@ export class WeeklyReportsPageComponent {
     return matrix?.students.find((item) => item.id === student.id)?.days[date] ?? null;
   }
 
+  private classDayConfirmation(classId: number, date: string): boolean {
+    return this.matrices()
+      .find((item) => item.classId === classId && item.days.some((day) => day.date === date))
+      ?.days.find((day) => day.date === date)
+      ?.attendanceConfirmed ?? false;
+  }
+
   private schoolOverviewDays(): OverviewDay[] {
     return this.overviewDays().filter((day) => day.isSchoolDay);
   }
@@ -665,6 +692,20 @@ export class WeeklyReportsPageComponent {
     return options.some((option) => option.value === currentMonth)
       ? currentMonth
       : options[0].value;
+  }
+
+  private defaultClassReportDay(options: UiSelectOption[]): string {
+    const dates = options
+      .map((option) => option.value)
+      .filter((value) => value !== '-')
+      .sort((first, second) => first.localeCompare(second));
+
+    if (!dates.length) {
+      return '-';
+    }
+
+    const today = this.toIsoDate(new Date());
+    return [...dates].reverse().find((date) => date <= today) ?? dates[0];
   }
 
   private buildOverviewDates(): string[] {

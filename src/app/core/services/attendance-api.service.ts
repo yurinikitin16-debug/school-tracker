@@ -10,6 +10,7 @@ export interface AttendanceWeekDayDto {
   weekday: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
   isSchoolDay: boolean;
   note: string | null;
+  attendanceConfirmed: boolean;
 }
 
 export interface AttendanceWeekStudentDto {
@@ -38,10 +39,16 @@ export interface AttendanceWeekChangeDto {
   meal: boolean;
 }
 
+export interface AttendanceDayConfirmationChangeDto {
+  date: string;
+  allPresent: boolean;
+}
+
 export interface UpdateAttendanceWeekRequest {
   classId: number;
   weekStart: string;
   changes: AttendanceWeekChangeDto[];
+  dayConfirmations?: AttendanceDayConfirmationChangeDto[];
 }
 
 @Injectable({ providedIn: 'root' })

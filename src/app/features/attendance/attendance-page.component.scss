@@ -283,6 +283,56 @@ th em {
   box-shadow: inset 0 0 0 2px #fb7185;
 }
 
+.day-confirm-row td {
+  background: #fbfcff;
+}
+
+.day-confirm-row .student-column {
+  color: var(--color-muted-strong);
+  font-weight: 900;
+}
+
+.day-confirm-row .cell--combined::after {
+  display: none;
+}
+
+.day-confirm-row__title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-confirm-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #cfe6dc;
+  border-radius: 999px;
+  background: #e8fbf1;
+  color: #007f55;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.day-confirm-control input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.day-confirm-control:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 tr:last-child td {
   border-bottom: 0;
 }
@@ -511,5 +561,16 @@ tfoot td:last-child {
 
   .cell--combined::after {
     display: none;
+  }
+
+  .day-confirm-control {
+    gap: 5px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .day-confirm-control input {
+    width: 12px;
+    height: 12px;
   }
 }

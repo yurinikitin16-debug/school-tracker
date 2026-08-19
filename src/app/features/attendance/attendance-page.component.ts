@@ -13,6 +13,7 @@ import { SchoolDataService } from '../../core/services/school-data.service';
 import { AcademicYearService } from '../../core/services/academic-year.service';
 import {
   AttendanceApiService,
+  AttendanceDayConfirmationChangeDto,
   AttendanceApiStatus,
   AttendanceWeekChangeDto,
   AttendanceWeekDayDto,
@@ -47,6 +48,7 @@ interface WeekdayColumn extends Weekday {
   dateLabel: string;
   isSchoolDay: boolean;
   note?: string;
+  attendanceConfirmed: boolean;
 }
 
 type StatusFilter = 'all' | AttendanceViewStatus;
@@ -110,6 +112,7 @@ export class AttendancePageComponent {
   readonly savedMeals = signal<StudentMeal[]>([]);
   readonly calendarExceptions = signal<AcademicCalendarException[]>([]);
   readonly matrixDays = signal<AttendanceWeekDayDto[]>([]);
+  readonly savedDayConfirmations = signal<Record<string, boolean>>({});
   readonly isMatrixLoading = signal(false);
   readonly weekLoadFailed = signal(false);
   readonly isSaving = signal(false);
@@ -161,7 +164,10 @@ export class AttendancePageComponent {
       return this.isMealChanged(Number(studentId), date);
     }).length;
   });
-  readonly changedTotalCount = computed(() => this.changedCellCount() + this.changedMealCount());
+  readonly changedDayConfirmationCount = computed(() =>
+    this.visibleSchoolDays().filter((day) => day.attendanceConfirmed !== !!this.savedDayConfirmations()[this.toIsoDate(day.date)]).length,
+  );
+  readonly changedTotalCount = computed(() => this.changedCellCount() + this.changedMealCount() + this.changedDayConfirmationCount());
   readonly confirmationTitle = computed(() =>
     this.confirmationAction() === 'save' ? 'Зберегти зміни?' : 'Скасувати зміни?',
   );
@@ -223,6 +229,7 @@ export class AttendancePageComponent {
         dateLabel: this.formatColumnDate(this.parseIsoDate(day.date) ?? new Date(day.date)),
         isSchoolDay: day.isSchoolDay,
         note: day.note ?? undefined,
+        attendanceConfirmed: day.attendanceConfirmed,
       }));
     }
 
@@ -237,6 +244,7 @@ export class AttendancePageComponent {
         date,
         dateLabel: this.formatColumnDate(date),
         ...this.resolveSchoolDay(date),
+        attendanceConfirmed: false,
       };
     });
   });
@@ -428,6 +436,40 @@ export class AttendancePageComponent {
 
   hasMeal(studentId: number, date: string): boolean {
     return !this.hasMissedMeal(studentId, date);
+  }
+
+  isAllPresentDayChecked(day: WeekdayColumn): boolean {
+    return day.isSchoolDay && this.dayMissedCount(day.id) === 0 && day.attendanceConfirmed;
+  }
+
+  toggleAllPresentDay(day: WeekdayColumn, checked: boolean): void {
+    if (!this.selectedClassId() || !day.isSchoolDay || this.isSaving()) {
+      return;
+    }
+
+    const date = this.toIsoDate(day.date);
+    this.setDraftDayConfirmation(date, checked);
+    this.closeCellEditor();
+    this.closeAttendanceEditor();
+
+    if (!checked) {
+      return;
+    }
+
+    const studentIds = new Set(
+      this.students()
+        .filter((student) => student.className === this.selectedClass())
+        .map((student) => student.id),
+    );
+
+    this.attendance.set(
+      this.attendance().filter((record) => record.lessonId !== day.id || !studentIds.has(record.studentId)),
+    );
+    this.failedCellKeys.update((failedCells) => {
+      const nextFailedCells = new Set(failedCells);
+      studentIds.forEach((studentId) => nextFailedCells.delete(this.changeKey(studentId, date)));
+      return nextFailedCells;
+    });
   }
 
   isCellChanged(studentId: number, lessonId: number): boolean {
@@ -784,6 +826,7 @@ export class AttendancePageComponent {
     const withoutStudentDays = this.attendance().filter(
       (record) => record.studentId !== cell.studentId || !dayIds.has(record.lessonId),
     );
+    dates.forEach((date) => this.setDraftDayConfirmation(date, false));
     this.meals.set(this.meals().filter((meal) => meal.studentId !== cell.studentId || !dates.has(meal.date)));
     const allDayRecords = days.map<AttendanceRecord>((day) => ({
       studentId: cell.studentId,
@@ -803,8 +846,9 @@ export class AttendancePageComponent {
   saveChanges(): void {
     const classId = this.selectedClassId();
     const changes = this.collectWeekChanges();
+    const dayConfirmations = this.collectDayConfirmationChanges();
 
-    if (!classId || !changes.length || this.isSaving()) {
+    if (!classId || (!changes.length && !dayConfirmations.length) || this.isSaving()) {
       return;
     }
 
@@ -815,6 +859,7 @@ export class AttendancePageComponent {
       classId,
       weekStart: this.toIsoDate(this.weekRange().start),
       changes,
+      dayConfirmations,
     }).pipe(
       catchError(() => {
         this.failedCellKeys.set(new Set(changes.map((change) => this.changeKey(change.studentId, change.date))));
@@ -874,6 +919,12 @@ export class AttendancePageComponent {
   discardChanges(): void {
     this.attendance.set(this.savedAttendance().map((record) => ({ ...record })));
     this.meals.set(this.savedMeals().map((meal) => ({ ...meal })));
+    this.matrixDays.update((days) =>
+      days.map((day) => ({
+        ...day,
+        attendanceConfirmed: !!this.savedDayConfirmations()[day.date],
+      })),
+    );
     this.failedCellKeys.set(new Set());
     this.closeCellEditor();
     this.closeAttendanceEditor();
@@ -908,6 +959,7 @@ export class AttendancePageComponent {
 
     if (day) {
       const date = this.toIsoDate(day.date);
+      this.setDraftDayConfirmation(date, false);
       this.meals.set(this.meals().filter((meal) => meal.studentId !== cell.studentId || meal.date !== date));
     }
 
@@ -1225,6 +1277,7 @@ export class AttendancePageComponent {
           this.meals.set([]);
           this.savedMeals.set([]);
           this.matrixDays.set([]);
+          this.savedDayConfirmations.set({});
         }
       });
   }
@@ -1247,6 +1300,10 @@ export class AttendancePageComponent {
     }));
     const nextAttendance: AttendanceRecord[] = [];
     const nextMeals: StudentMeal[] = [];
+    const nextDayConfirmations = matrix.days.reduce<Record<string, boolean>>((confirmations, day) => {
+      confirmations[day.date] = day.attendanceConfirmed;
+      return confirmations;
+    }, {});
 
     matrix.students.forEach((student) => {
       Object.entries(student.days).forEach(([date, dayState]) => {
@@ -1276,6 +1333,7 @@ export class AttendancePageComponent {
     });
 
     this.matrixDays.set(matrix.days);
+    this.savedDayConfirmations.set(nextDayConfirmations);
     this.students.set(nextStudents);
     this.attendance.set(nextAttendance);
     this.savedAttendance.set(nextAttendance.map((record) => ({ ...record })));
@@ -1287,6 +1345,12 @@ export class AttendancePageComponent {
 
   private changeKey(studentId: number, date: string): string {
     return `${studentId}:${date}`;
+  }
+
+  private setDraftDayConfirmation(date: string, attendanceConfirmed: boolean): void {
+    this.matrixDays.update((days) =>
+      days.map((day) => (day.date === date ? { ...day, attendanceConfirmed } : day)),
+    );
   }
 
   private clearFailedCell(studentId: number, date: string): void {
@@ -1323,6 +1387,15 @@ export class AttendancePageComponent {
       });
 
     return changes;
+  }
+
+  private collectDayConfirmationChanges(): AttendanceDayConfirmationChangeDto[] {
+    return this.visibleSchoolDays()
+      .filter((day) => day.attendanceConfirmed !== !!this.savedDayConfirmations()[this.toIsoDate(day.date)])
+      .map((day) => ({
+        date: this.toIsoDate(day.date),
+        allPresent: day.attendanceConfirmed,
+      }));
   }
 
   private apiStatusToReason(status: AttendanceApiStatus): string {
