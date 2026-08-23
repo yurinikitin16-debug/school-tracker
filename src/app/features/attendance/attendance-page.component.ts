@@ -631,13 +631,50 @@ export class AttendancePageComponent {
     this.meals.set([...withoutCurrent, { studentId: row.student.id, date, hadMeal: false }]);
   }
 
-  handleCellClick(row: AttendanceRow, day: WeekdayColumn, event: MouseEvent): void {
+  handleCellClick(row: AttendanceRow, day: WeekdayColumn): void {
     if (this.tableMode() === 'meals') {
       this.toggleMeal(row, day);
       return;
     }
 
-    this.openCellEditor(row, day, event);
+    this.cycleAttendanceCell(row, day);
+  }
+
+  cycleAttendanceCell(row: AttendanceRow, day: WeekdayColumn): void {
+    if (!day.isSchoolDay) {
+      return;
+    }
+
+    this.closeCellEditor();
+    this.closeAttendanceEditor();
+
+    const cell = { studentId: row.student.id, lessonId: day.id };
+    const date = this.toIsoDate(day.date);
+    const current = this.recordFor(cell.studentId, cell.lessonId);
+    const nextReason = this.nextAttendanceReason(current?.reason);
+    const withoutCurrent = this.attendance().filter(
+      (record) => record.studentId !== cell.studentId || record.lessonId !== cell.lessonId,
+    );
+
+    this.clearFailedCell(cell.studentId, date);
+
+    if (!nextReason) {
+      this.attendance.set(withoutCurrent);
+      this.restoreSavedMealForCell(cell);
+      return;
+    }
+
+    this.setDraftDayConfirmation(date, false);
+    this.meals.set(this.meals().filter((meal) => meal.studentId !== cell.studentId || meal.date !== date));
+    this.attendance.set([
+      ...withoutCurrent,
+      {
+        studentId: cell.studentId,
+        lessonId: cell.lessonId,
+        status: 'A',
+        reason: nextReason,
+      },
+    ]);
   }
 
   dayMissedCount(dayId: number): number {
@@ -1010,6 +1047,19 @@ export class AttendancePageComponent {
     const withoutCurrent = this.meals().filter((meal) => meal.studentId !== cell.studentId || meal.date !== date);
 
     this.meals.set(savedMeal ? [...withoutCurrent, { ...savedMeal }] : withoutCurrent);
+  }
+
+  private nextAttendanceReason(currentReason?: string): string | null {
+    const cycle = ['Без причини', 'Поважна причина', 'Хворий'];
+
+    if (!currentReason) {
+      return cycle[0];
+    }
+
+    const currentIndex = cycle.indexOf(currentReason);
+    return currentIndex >= 0 && currentIndex < cycle.length - 1
+      ? cycle[currentIndex + 1]
+      : null;
   }
 
   updateAttendanceDate(date: Date): void {

@@ -209,9 +209,6 @@
           <thead>
             <tr>
               <th></th>
-              @if (selectedClassReportDay() !== '-') {
-                <th>Підтв.</th>
-              }
               <th>Всього</th>
               <th>п/п</th>
               <th>хв.</th>
@@ -225,11 +222,6 @@
           <tbody>
             <tr>
               <th>Загалом</th>
-              @if (selectedClassReportDay() !== '-') {
-                <td>
-                  <strong>{{ classReportSummary().confirmedClasses }}</strong>
-                </td>
-              }
               <td>
                 <strong [class.report-number--danger]="classReportSummary().totalAbsences > 0">{{ classReportSummary().totalAbsences }}</strong>
               </td>
@@ -302,7 +294,6 @@
             <thead>
               <tr>
                 <th rowspan="2">Клас</th>
-                <th rowspan="2">Підтв.</th>
                 <th rowspan="2">Всього пропусків</th>
                 <th rowspan="2">п/п</th>
                 <th rowspan="2">хв.</th>
@@ -318,13 +309,8 @@
             </thead>
             <tbody>
               @for (row of classDayRows(); track row.className) {
-                <tr>
+                <tr [class.class-report-table__row--processed]="row.attendanceConfirmed || row.totalAbsences > 0">
                   <td><strong>{{ row.className }}</strong></td>
-                  <td>
-                    <span class="confirmation-badge" [class.confirmation-badge--yes]="row.attendanceConfirmed">
-                      {{ row.attendanceConfirmed ? 'Так' : 'Ні' }}
-                    </span>
-                  </td>
                   <td>
                     <button
                       class="report-value"

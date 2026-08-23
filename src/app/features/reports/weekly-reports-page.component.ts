@@ -81,7 +81,6 @@ interface ClassReportSelection {
 }
 
 interface ClassReportSummary {
-  confirmedClasses: number;
   totalAbsences: number;
   excusedAbsences: number;
   sickAbsences: number;
@@ -258,7 +257,6 @@ export class WeeklyReportsPageComponent {
       const absentPercent = totalStudents ? Math.round((studentsWithAbsences / totalStudents) * 100) : 0;
 
       return {
-        confirmedClasses: 0,
         totalAbsences: rows.reduce((total, row) => total + row.totalAbsences, 0),
         excusedAbsences: rows.reduce((total, row) => total + row.excusedStudents, 0),
         sickAbsences: rows.reduce((total, row) => total + row.sickStudents, 0),
@@ -279,7 +277,6 @@ export class WeeklyReportsPageComponent {
     const absentPercent = totalStudents ? Math.round((totalAbsences / totalStudents) * 100) : 0;
 
     return {
-      confirmedClasses: rows.filter((row) => row.attendanceConfirmed).length,
       totalAbsences,
       excusedAbsences: rows.reduce((total, row) => total + row.excusedAbsences, 0),
       sickAbsences: rows.reduce((total, row) => total + row.sickAbsences, 0),
@@ -456,7 +453,6 @@ export class WeeklyReportsPageComponent {
         ])
         : this.classDayRows().map((row) => [
           row.className,
-          row.attendanceConfirmed ? 'Так' : 'Ні',
           row.totalAbsences,
           row.excusedAbsences,
           row.sickAbsences,
@@ -471,19 +467,14 @@ export class WeeklyReportsPageComponent {
         ['Період', periodLabel],
         ['День', dayLabel],
         [],
-        isDayReport
-          ? ['Загалом', summary.confirmedClasses, summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`]
-          : ['Загалом', summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`],
+        ['Загалом', summary.totalAbsences, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, `${summary.presentPercent}%`, `${summary.absentPercent}%`, summary.totalMeals, `${summary.mealPercent}%`],
         [],
-        isDayReport
-          ? ['Клас', 'Підтверджено', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування']
-          : ['Клас', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування'],
+        ['Клас', 'Всього пропусків', 'п/п', 'хв.', 'б.п.', 'Присутні %', 'Відсутні %', 'Харчувались', '% харчування'],
         ...classReportRows,
       ];
       const classSheet = XLSX.utils.aoa_to_sheet(classRows);
       classSheet['!cols'] = [
         { wch: 14 },
-        ...(isDayReport ? [{ wch: 14 }] : []),
         { wch: 18 },
         { wch: 8 },
         { wch: 8 },
@@ -493,7 +484,7 @@ export class WeeklyReportsPageComponent {
         { wch: 14 },
         { wch: 14 },
       ];
-      classSheet['!autofilter'] = { ref: `A7:${isDayReport ? 'J' : 'I'}${Math.max(7, classRows.length)}` };
+      classSheet['!autofilter'] = { ref: `A7:I${Math.max(7, classRows.length)}` };
       XLSX.utils.book_append_sheet(workbook, classSheet, 'По класах');
       XLSX.writeFile(workbook, `school-class-report-${this.selectedMonth()}-${this.selectedClassReportDay()}.xlsx`);
       return;

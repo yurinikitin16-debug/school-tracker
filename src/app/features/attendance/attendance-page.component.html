@@ -143,7 +143,7 @@
                         [attr.aria-label]="statusLabel(status)"
                         type="button"
                         [disabled]="!day.isSchoolDay"
-                        (click)="openCellEditor(row, day, $event)"
+                        (click)="cycleAttendanceCell(row, day)"
                       >
                         {{ day.isSchoolDay ? attendanceText(row, day.id) : '—' }}
                       </button>
@@ -182,7 +182,7 @@
                       [attr.aria-label]="tableMode() === 'attendance' ? statusLabel(status) : mealText(row, day)"
                       type="button"
                       [disabled]="tableMode() === 'meals' ? !isMealEditable(row, day) : !day.isSchoolDay"
-                      (click)="handleCellClick(row, day, $event)"
+                      (click)="handleCellClick(row, day)"
                     >
                       {{ day.isSchoolDay ? cellText(row, day.id) : '—' }}
                     </button>
