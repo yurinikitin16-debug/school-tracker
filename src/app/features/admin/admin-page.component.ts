@@ -27,6 +27,8 @@ interface AssignmentRow {
   className: string;
 }
 
+type UserRoleFilter = 'class_teacher' | 'admin';
+
 @Component({
   selector: 'app-admin-page',
   imports: [
@@ -56,6 +58,7 @@ export class AdminPageComponent {
   readonly academicYears = signal<AcademicYearDto[]>([]);
   readonly selectedYearId = signal<number | null>(this.academicYear.currentYearId());
   readonly userSearch = signal('');
+  readonly userRoleFilter = signal<UserRoleFilter>('admin');
   readonly assignmentSearch = signal('');
   readonly isLoading = signal(false);
 
@@ -98,9 +101,10 @@ export class AdminPageComponent {
 
   readonly filteredUsers = computed(() => {
     const query = this.userSearch().trim().toLowerCase();
+    const role = this.userRoleFilter();
 
     return this.users()
-      .filter((user) => user.role === 'admin')
+      .filter((user) => user.role === role)
       .filter((user) => !query || `${user.fullName} ${user.login}`.toLowerCase().includes(query))
       .sort((first, second) => first.fullName.localeCompare(second.fullName, 'uk', { sensitivity: 'base' }));
   });

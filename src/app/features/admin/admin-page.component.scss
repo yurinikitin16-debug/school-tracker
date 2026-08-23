@@ -71,7 +71,9 @@
 }
 
 .admin-card > ui-toolbar {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0 22px 14px;
 }
 
@@ -79,6 +81,37 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.admin-user-filter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.admin-user-filter button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.admin-user-filter button:last-child {
+  border-right: 0;
+}
+
+.admin-user-filter__button--active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
 }
 
 .admin-card__header {
@@ -267,6 +300,7 @@ td:last-child {
   }
 
   .admin-card > ui-toolbar {
+    display: grid;
     margin: 0 18px 14px;
   }
 
@@ -275,10 +309,16 @@ td:last-child {
   }
 
   .admin-card__header .primary-button,
+  .admin-user-filter,
   .admin-search,
   .admin-year {
     width: 100%;
     min-width: 100%;
+  }
+
+  .admin-user-filter {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-table-wrap {

@@ -26,6 +26,22 @@
     </header>
 
     <ui-toolbar>
+      <nav class="admin-user-filter" aria-label="Фільтр користувачів">
+        <button
+          type="button"
+          [class.admin-user-filter__button--active]="userRoleFilter() === 'admin'"
+          (click)="userRoleFilter.set('admin')"
+        >
+          Адміністратори
+        </button>
+        <button
+          type="button"
+          [class.admin-user-filter__button--active]="userRoleFilter() === 'class_teacher'"
+          (click)="userRoleFilter.set('class_teacher')"
+        >
+          Вчителі
+        </button>
+      </nav>
       <ui-input
         class="admin-search"
         icon="search"
