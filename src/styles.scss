@@ -211,18 +211,33 @@ table tbody tr:hover > .cell--changed {
 }
 
 .attendance-page .status-cell--A {
+  width: auto;
+  min-width: 42px;
+  padding: 0 10px;
   background: #f43f5e;
   color: #ffffff;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .attendance-page .status-cell--S {
+  width: auto;
+  min-width: 42px;
+  padding: 0 10px;
   background: #ffbe3d;
   color: #6b3500;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .attendance-page .status-cell--E {
+  width: auto;
+  min-width: 42px;
+  padding: 0 10px;
   background: #4b7dff;
   color: #ffffff;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .attendance-page .status-cell--changed,
@@ -240,8 +255,8 @@ table tbody tr:hover > .cell--changed {
 }
 
 .attendance-page .status-cell--meal-no {
-  background: #f1f4f9;
-  color: var(--color-muted-strong);
+  background: #fee7db;
+  color: #9a3412;
 }
 
 .attendance-page .status-cell--disabled,
