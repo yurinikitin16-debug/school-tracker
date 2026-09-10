@@ -104,6 +104,10 @@
   font-size: 20px;
 }
 
+.class-report-summary__percent-row strong {
+  font-size: 14px;
+}
+
 .class-report-table {
   table-layout: fixed;
 }
@@ -374,6 +378,17 @@ tr:last-child td {
   background: #e3f8ec;
 }
 
+.class-report-table__percent-row td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  background: #fbfcff;
+  border-bottom: 2px solid #d5deeb;
+}
+
+.class-report-table__percent-row strong {
+  font-size: 12px;
+}
+
 .report-value {
   display: inline-grid;
   min-width: 28px;
@@ -410,6 +425,16 @@ tr:last-child td {
 
 .report-number--success {
   color: #128653;
+}
+
+.class-report-summary__percent-row strong,
+.class-report-table__percent-row strong {
+  font-style: italic;
+}
+
+.class-report-table__row--processed + .class-report-table__percent-row td,
+.class-report-table__percent-row:hover td {
+  background: #fbfcff;
 }
 
 .absent-modal__backdrop {
