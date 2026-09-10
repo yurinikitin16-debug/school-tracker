@@ -60,7 +60,7 @@
             <th class="row-number-cell">№</th>
             <th class="student-column">Учень</th>
             @for (day of visibleDays(); track day.id) {
-              <th [class.day-disabled]="!day.isSchoolDay">
+              <th [class.day-disabled]="!day.isSchoolDay" [class.cell--locked]="isDayEditingLocked(day)" [class.cell--today]="isToday(day)">
                 <strong>{{ day.dateLabel }}</strong>
                 <small>{{ day.label }}</small>
                 <em [class.day-note--hidden]="day.isSchoolDay">{{ day.note || 'Вихідний' }}</em>
@@ -89,13 +89,15 @@
                 <td
                   [class.cell--disabled]="!day.isSchoolDay"
                   [class.cell--combined]="tableMode() === 'combined'"
+                  [class.cell--locked]="isDayEditingLocked(day)"
+                  [class.cell--today]="isToday(day)"
                 >
                   @if (day.isSchoolDay) {
                     <label class="day-confirm-control">
                       <input
                         type="checkbox"
                         [checked]="isAllPresentDayChecked(day)"
-                        [disabled]="isSaving()"
+                        [disabled]="isSaving() || isDayEditingLocked(day)"
                         (change)="toggleAllPresentDay(day, $any($event.target).checked)"
                       />
                       <span>Присутні всі</span>
@@ -127,6 +129,8 @@
                   [class.cell--failed]="isDisplayCellFailed(row, day)"
                   [class.cell--disabled]="!day.isSchoolDay"
                   [class.cell--combined]="tableMode() === 'combined'"
+                  [class.cell--locked]="isDayEditingLocked(day)"
+                  [class.cell--today]="isToday(day)"
                 >
                   @if (tableMode() === 'combined') {
                     <div class="combined-cell">
@@ -138,9 +142,11 @@
                           'status-cell--S': day.isSchoolDay && tone === 'S',
                           'status-cell--E': day.isSchoolDay && tone === 'E',
                           'status-cell--changed': day.isSchoolDay && isCellChanged(row.student.id, day.id),
+                          'status-cell--locked': isDayEditingLocked(day),
                           'status-cell--disabled': !day.isSchoolDay
                         }"
                         [attr.aria-label]="statusLabel(status)"
+                        [attr.aria-disabled]="isDayEditingLocked(day) ? 'true' : null"
                         type="button"
                         [disabled]="!day.isSchoolDay"
                         (click)="cycleAttendanceCell(row, day)"
@@ -153,9 +159,11 @@
                           'status-cell--meal-yes': day.isSchoolDay && isMealEditable(row, day) && hasMeal(row.student.id, toIsoDate(day.date)),
                           'status-cell--meal-no': day.isSchoolDay && isMealEditable(row, day) && hasMissedMeal(row.student.id, toIsoDate(day.date)),
                           'status-cell--meal-changed': day.isSchoolDay && isMealChanged(row.student.id, toIsoDate(day.date)),
+                          'status-cell--locked': isDayEditingLocked(day),
                           'status-cell--disabled': !isMealEditable(row, day)
                         }"
                         [attr.aria-label]="mealText(row, day)"
+                        [attr.aria-disabled]="isDayEditingLocked(day) ? 'true' : null"
                         type="button"
                         [disabled]="!isMealEditable(row, day)"
                         (click)="toggleMeal(row, day)"
@@ -173,6 +181,7 @@
                         'status-cell--S': day.isSchoolDay && tone === 'S',
                         'status-cell--E': day.isSchoolDay && tone === 'E',
                         'status-cell--changed': day.isSchoolDay && isCellChanged(row.student.id, day.id),
+                        'status-cell--locked': isDayEditingLocked(day),
                         'status-cell--disabled': !day.isSchoolDay,
                         'status-cell--meal': tableMode() === 'meals',
                         'status-cell--meal-yes': tableMode() === 'meals' && hasMeal(row.student.id, toIsoDate(day.date)),
@@ -180,6 +189,7 @@
                         'status-cell--meal-changed': tableMode() !== 'attendance' && isMealChanged(row.student.id, toIsoDate(day.date))
                       }"
                       [attr.aria-label]="tableMode() === 'attendance' ? statusLabel(status) : mealText(row, day)"
+                      [attr.aria-disabled]="isDayEditingLocked(day) ? 'true' : null"
                       type="button"
                       [disabled]="tableMode() === 'meals' ? !isMealEditable(row, day) : !day.isSchoolDay"
                       (click)="handleCellClick(row, day)"
@@ -224,7 +234,7 @@
               {{ tableMode() === 'combined' ? 'Пропуски / не харчувались' : 'Всього пропусків' }}
             </th>
             @for (day of visibleDays(); track day.id) {
-              <td [class.cell--disabled]="!day.isSchoolDay" [class.cell--combined]="tableMode() === 'combined'">
+              <td [class.cell--disabled]="!day.isSchoolDay" [class.cell--combined]="tableMode() === 'combined'" [class.cell--locked]="isDayEditingLocked(day)" [class.cell--today]="isToday(day)">
                 @if (tableMode() === 'combined') {
                   <div class="combined-total">
                     <strong [class.missed-danger]="dayMissedCount(day.id) > 2">{{ dayMissedCount(day.id) }}</strong>

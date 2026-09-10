@@ -109,6 +109,7 @@ export class WeeklyReportsPageComponent {
   private readonly academicYear = inject(AcademicYearService);
   private readonly attendanceApi = inject(AttendanceApiService);
   private readonly classesApi = inject(ClassesApiService);
+  private readonly selectedClassStorageKey = 'school-tracker:selected-class-id';
   private autoSelectedClassReportMonth = '';
 
   readonly classes = signal<ClassDto[]>([]);
@@ -116,7 +117,7 @@ export class WeeklyReportsPageComponent {
   readonly selectedClassId = signal<string>('');
   readonly selectedMonth = signal('');
   readonly selectedClassReportDay = signal('-');
-  readonly selectedView = signal<ReportView>('overview');
+  readonly selectedView = signal<ReportView>('classes');
   readonly selectedClassReport = signal<ClassReportSelection | null>(null);
   readonly searchTerm = signal('');
   readonly isLoading = signal(false);
@@ -339,6 +340,7 @@ export class WeeklyReportsPageComponent {
 
   updateClass(classId: string): void {
     this.selectedClassId.set(classId);
+    this.saveStoredClassId(classId);
     this.searchTerm.set('');
   }
 
@@ -389,7 +391,7 @@ export class WeeklyReportsPageComponent {
     const cell = this.dayState(student, date);
 
     if (!cell || cell.meal) {
-      return { code: 'Харч.', label: 'Харчувався', tone: 'present' };
+      return { code: '✓', label: 'Харчувався', tone: 'present' };
     }
 
     return { code: 'Ні', label: 'Не харчувався', tone: 'A' };
@@ -425,6 +427,10 @@ export class WeeklyReportsPageComponent {
       day: 'numeric',
       month: 'long',
     }).format(new Date(`${date}T12:00:00`));
+  }
+
+  excelDayLabel(date: string): string {
+    return date.slice(8, 10);
   }
 
   async exportReport(): Promise<void> {
@@ -495,7 +501,7 @@ export class WeeklyReportsPageComponent {
       ['Клас', classLabel],
       ['Період', periodLabel],
       [],
-      ['Учень', ...this.overviewDays().map((day) => day.date), 'Всього'],
+      ['Учень', ...this.overviewDays().map((day) => this.excelDayLabel(day.date)), 'Всього'],
       ...this.overviewRows().map((student) => [
         this.studentName(student),
         ...this.overviewDays().map((day) => this.overviewCell(student, day.date).code),
@@ -516,7 +522,7 @@ export class WeeklyReportsPageComponent {
       ['Клас', classLabel],
       ['Період', periodLabel],
       [],
-      ['Учень', ...this.overviewDays().map((day) => day.date), 'Не харч.'],
+      ['Учень', ...this.overviewDays().map((day) => this.excelDayLabel(day.date)), 'Не харч.'],
       ...this.overviewRows().map((student) => [
         this.studentName(student),
         ...this.overviewDays().map((day) => this.mealCell(student, day.date).code),
@@ -550,7 +556,7 @@ export class WeeklyReportsPageComponent {
         }
 
         if (!activeClasses.some((schoolClass) => schoolClass.id.toString() === this.selectedClassId())) {
-          this.selectedClassId.set(this.findLatestClass(activeClasses)?.id.toString() ?? activeClasses[0].id.toString());
+          this.selectedClassId.set(this.resolveInitialClassId(activeClasses));
         }
       });
   }
@@ -712,9 +718,11 @@ export class WeeklyReportsPageComponent {
     const endsOn = this.parseIsoDate(academicYear?.endsOn ?? '');
     const cursor = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
+    const today = this.parseIsoDate(this.toIsoDate(new Date()));
+    const endDate = today && today < monthEnd ? today : monthEnd;
     const dates: string[] = [];
 
-    while (cursor <= monthEnd) {
+    while (cursor <= endDate) {
       const day = cursor.getDay();
       const isWeekday = day >= 1 && day <= 5;
       const isInsideAcademicYear = (!startsOn || cursor >= startsOn) && (!endsOn || cursor <= endsOn);
@@ -745,6 +753,32 @@ export class WeeklyReportsPageComponent {
 
   private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
     return [...classes].sort((first, second) => second.id - first.id)[0];
+  }
+
+  private resolveInitialClassId(classes: ClassDto[]): string {
+    const storedClassId = this.readStoredClassId();
+
+    if (storedClassId && classes.some((schoolClass) => schoolClass.id.toString() === storedClassId)) {
+      return storedClassId;
+    }
+
+    return this.findLatestClass(classes)?.id.toString() ?? classes[0].id.toString();
+  }
+
+  private readStoredClassId(): string | null {
+    try {
+      return localStorage.getItem(this.selectedClassStorageKey);
+    } catch {
+      return null;
+    }
+  }
+
+  private saveStoredClassId(classId: string): void {
+    try {
+      localStorage.setItem(this.selectedClassStorageKey, classId);
+    } catch {
+      return;
+    }
   }
 
   private formatMonth(date: Date): string {

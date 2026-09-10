@@ -245,6 +245,11 @@ table tbody tr:hover > .cell--changed {
   box-shadow: 0 0 0 2px #8d84f8;
 }
 
+.attendance-page .status-cell--locked {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
 .attendance-page .status-cell--meal {
   min-width: 112px;
 }

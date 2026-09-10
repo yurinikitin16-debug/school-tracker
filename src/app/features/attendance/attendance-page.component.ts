@@ -96,6 +96,15 @@ export class AttendancePageComponent {
   private readonly auth = inject(AuthService);
   private readonly classesApi = inject(ClassesApiService);
   private readonly toast = inject(ToastService);
+  private readonly selectedClassStorageKey = 'school-tracker:selected-class-id';
+  private readonly kyivDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kyiv',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  });
 
   readonly weekdays: Weekday[] = [
     { id: 1, label: 'Понеділок' },
@@ -443,7 +452,7 @@ export class AttendancePageComponent {
   }
 
   toggleAllPresentDay(day: WeekdayColumn, checked: boolean): void {
-    if (!this.selectedClassId() || !day.isSchoolDay || this.isSaving()) {
+    if (!this.selectedClassId() || !day.isSchoolDay || this.isSaving() || this.isDayEditingLocked(day)) {
       return;
     }
 
@@ -490,6 +499,21 @@ export class AttendancePageComponent {
 
   isMealEditable(row: AttendanceRow, day: WeekdayColumn): boolean {
     return day.isSchoolDay && this.statusFor(row, day.id) === 'present';
+  }
+
+  isDayEditingLocked(day: WeekdayColumn): boolean {
+    if (!day.isSchoolDay || this.isAdminUser()) {
+      return false;
+    }
+
+    const dayIsoDate = this.toIsoDate(day.date);
+    const kyivNow = this.kyivNow();
+
+    return dayIsoDate < kyivNow.date || (dayIsoDate === kyivNow.date && kyivNow.hour >= 14);
+  }
+
+  isToday(day: WeekdayColumn): boolean {
+    return this.toIsoDate(day.date) === this.kyivNow().date;
   }
 
   isDisplayCellChanged(row: AttendanceRow, day: WeekdayColumn): boolean {
@@ -614,7 +638,7 @@ export class AttendancePageComponent {
   }
 
   toggleMeal(row: AttendanceRow, day: WeekdayColumn): void {
-    if (!this.isMealEditable(row, day)) {
+    if (!this.isMealEditable(row, day) || this.isDayEditingLocked(day)) {
       return;
     }
 
@@ -641,7 +665,7 @@ export class AttendancePageComponent {
   }
 
   cycleAttendanceCell(row: AttendanceRow, day: WeekdayColumn): void {
-    if (!day.isSchoolDay) {
+    if (!day.isSchoolDay || this.isDayEditingLocked(day)) {
       return;
     }
 
@@ -719,6 +743,10 @@ export class AttendancePageComponent {
       return;
     }
 
+    if (this.isAdminUser()) {
+      this.saveStoredClassId(schoolClass.id);
+    }
+
     this.selectClass(schoolClass);
   }
 
@@ -727,7 +755,7 @@ export class AttendancePageComponent {
   }
 
   openCellEditor(row: AttendanceRow, day: WeekdayColumn, event?: MouseEvent): void {
-    if (!day.isSchoolDay) {
+    if (!day.isSchoolDay || this.isDayEditingLocked(day)) {
       return;
     }
 
@@ -766,7 +794,7 @@ export class AttendancePageComponent {
   }
 
   openStudentPanel(row: AttendanceRow): void {
-    const days = this.visibleSchoolDays();
+    const days = this.editableSchoolDays();
 
     if (!days.length) {
       return;
@@ -798,7 +826,7 @@ export class AttendancePageComponent {
       return;
     }
 
-    const dayIds = new Set(this.visibleSchoolDays().map((day) => day.id));
+    const dayIds = new Set(this.editableSchoolDays().map((day) => day.id));
     this.attendance.set(
       this.attendance().filter(
         (record) => record.studentId !== cell.studentId || !dayIds.has(record.lessonId),
@@ -809,7 +837,7 @@ export class AttendancePageComponent {
   }
 
   openAttendanceEditor(row: AttendanceRow, day: WeekdayColumn): void {
-    if (!day.isSchoolDay) {
+    if (!day.isSchoolDay || this.isDayEditingLocked(day)) {
       return;
     }
 
@@ -852,7 +880,7 @@ export class AttendancePageComponent {
       return;
     }
 
-    const days = this.visibleSchoolDays();
+    const days = this.editableSchoolDays();
     if (!days.length) {
       this.closeAttendanceEditor();
       return;
@@ -1271,8 +1299,7 @@ export class AttendancePageComponent {
         this.classes.set(classes);
 
         const currentClass = activeClasses.find((schoolClass) => schoolClass.id === this.selectedClassId());
-        const latestClass = this.findLatestClass(activeClasses);
-        const nextClass = currentClass ?? latestClass;
+        const nextClass = currentClass ?? this.resolveInitialClass(activeClasses);
 
         if (nextClass) {
           this.selectClass(nextClass);
@@ -1334,6 +1361,53 @@ export class AttendancePageComponent {
 
   private findLatestClass(classes: ClassDto[]): ClassDto | undefined {
     return [...classes].sort((a, b) => b.id - a.id)[0];
+  }
+
+  private resolveInitialClass(classes: ClassDto[]): ClassDto | undefined {
+    if (this.isAdminUser()) {
+      const storedClassId = this.readStoredClassId();
+      const storedClass = classes.find((schoolClass) => schoolClass.id.toString() === storedClassId);
+
+      if (storedClass) {
+        return storedClass;
+      }
+    }
+
+    return this.findLatestClass(classes);
+  }
+
+  private isAdminUser(): boolean {
+    return this.auth.currentUser()?.role === 'admin';
+  }
+
+  private editableSchoolDays(): WeekdayColumn[] {
+    return this.visibleSchoolDays().filter((day) => !this.isDayEditingLocked(day));
+  }
+
+  private kyivNow(): { date: string; hour: number } {
+    const parts = this.kyivDateTimeFormatter.formatToParts(new Date());
+    const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+
+    return {
+      date: `${value('year')}-${value('month')}-${value('day')}`,
+      hour: Number(value('hour') || 0),
+    };
+  }
+
+  private readStoredClassId(): string | null {
+    try {
+      return localStorage.getItem(this.selectedClassStorageKey);
+    } catch {
+      return null;
+    }
+  }
+
+  private saveStoredClassId(classId: number): void {
+    try {
+      localStorage.setItem(this.selectedClassStorageKey, classId.toString());
+    } catch {
+      return;
+    }
   }
 
   private applyWeekMatrix(matrix: AttendanceWeekMatrixDto): void {
@@ -1415,7 +1489,7 @@ export class AttendancePageComponent {
     this.students()
       .filter((student) => student.className === this.selectedClass())
       .forEach((student) => {
-        this.visibleSchoolDays().forEach((day) => {
+        this.editableSchoolDays().forEach((day) => {
           const date = this.toIsoDate(day.date);
           const attendanceChanged = this.isCellChanged(student.id, day.id);
           const mealChanged = this.isMealChanged(student.id, date);
@@ -1440,7 +1514,7 @@ export class AttendancePageComponent {
   }
 
   private collectDayConfirmationChanges(): AttendanceDayConfirmationChangeDto[] {
-    return this.visibleSchoolDays()
+    return this.editableSchoolDays()
       .filter((day) => day.attendanceConfirmed !== !!this.savedDayConfirmations()[this.toIsoDate(day.date)])
       .map((day) => ({
         date: this.toIsoDate(day.date),

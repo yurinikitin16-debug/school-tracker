@@ -26,11 +26,11 @@
   </ui-toolbar>
 
   <nav class="report-tabs" aria-label="Види звіту">
-    <button type="button" [class.report-tabs__button--active]="selectedView() === 'overview'" (click)="updateView('overview')">
-      Огляд
-    </button>
     <button type="button" [class.report-tabs__button--active]="selectedView() === 'classes'" (click)="updateView('classes')">
       По класах
+    </button>
+    <button type="button" [class.report-tabs__button--active]="selectedView() === 'overview'" (click)="updateView('overview')">
+      Огляд
     </button>
   </nav>
 
