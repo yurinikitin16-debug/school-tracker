@@ -45,6 +45,7 @@ interface ClassReportRow {
   classId: number;
   className: string;
   totalStudents: number;
+  presentStudents: number;
   totalStudentsPercent: number;
   studentsWithAbsences: number;
   absentStudentsPercent: number;
@@ -68,6 +69,7 @@ interface ClassDayReportRow {
   className: string;
   attendanceConfirmed: boolean;
   totalStudents: number;
+  presentStudents: number;
   totalStudentsPercent: number;
   totalAbsences: number;
   absentStudentsPercent: number;
@@ -92,6 +94,7 @@ interface ClassReportSelection {
 
 interface ClassReportSummary {
   totalStudents: number;
+  presentStudents: number;
   absentStudents: number;
   totalAbsences: number;
   excusedAbsences: number;
@@ -219,6 +222,7 @@ export class WeeklyReportsPageComponent {
         classId: schoolClass.id,
         className: schoolClass.name,
         totalStudents: students.length,
+        presentStudents,
         totalStudentsPercent: this.percent(presentStudents, students.length),
         studentsWithAbsences: studentIds.length,
         absentStudentsPercent: this.percent(studentIds.length, students.length),
@@ -266,6 +270,7 @@ export class WeeklyReportsPageComponent {
         className: schoolClass.name,
         attendanceConfirmed: this.classDayConfirmation(schoolClass.id, selectedDay),
         totalStudents: students.length,
+        presentStudents,
         totalStudentsPercent: this.percent(presentStudents, students.length),
         totalAbsences,
         absentStudentsPercent: this.percent(totalAbsences, students.length),
@@ -290,6 +295,7 @@ export class WeeklyReportsPageComponent {
       const totalStudents = rows.reduce((total, row) => total + row.totalStudents, 0);
       const studentsWithAbsences = rows.reduce((total, row) => total + row.studentsWithAbsences, 0);
       const absentPercent = totalStudents ? Math.round((studentsWithAbsences / totalStudents) * 100) : 0;
+      const presentStudents = Math.max(0, totalStudents - studentsWithAbsences);
       const totalAbsences = rows.reduce((total, row) => total + row.totalAbsences, 0);
       const excusedAbsences = rows.reduce((total, row) => total + row.excusedStudents, 0);
       const sickAbsences = rows.reduce((total, row) => total + row.sickStudents, 0);
@@ -299,6 +305,7 @@ export class WeeklyReportsPageComponent {
 
       return {
         totalStudents,
+        presentStudents,
         absentStudents: studentsWithAbsences,
         totalAbsences,
         excusedAbsences,
@@ -319,14 +326,14 @@ export class WeeklyReportsPageComponent {
     const totalStudents = rows.reduce((total, row) => total + row.totalStudents, 0);
     const totalAbsences = rows.reduce((total, row) => total + row.totalAbsences, 0);
     const absentPercent = totalStudents ? Math.round((totalAbsences / totalStudents) * 100) : 0;
+    const presentStudents = Math.max(0, totalStudents - totalAbsences);
     const excusedAbsences = rows.reduce((total, row) => total + row.excusedAbsences, 0);
     const sickAbsences = rows.reduce((total, row) => total + row.sickAbsences, 0);
     const noReasonAbsences = rows.reduce((total, row) => total + row.noReasonAbsences, 0);
     const totalMeals = rows.reduce((total, row) => total + row.totalMeals, 0);
-    const presentStudents = Math.max(0, totalStudents - totalAbsences);
-
     return {
       totalStudents,
+      presentStudents,
       absentStudents: totalAbsences,
       totalAbsences,
       excusedAbsences,
@@ -500,68 +507,77 @@ export class WeeklyReportsPageComponent {
         : this.classReportDayOptions().find((option) => option.value === this.selectedClassReportDay())?.label ?? this.selectedClassReportDay();
       const summary = this.classReportSummary();
       const classReportRows = !isDayReport
-        ? this.classRows().flatMap((row) => [
-          [
-            row.className,
-            row.totalStudents,
-            row.studentsWithAbsences,
-            row.excusedStudents,
-            row.sickStudents,
-            row.noReasonStudents,
-            row.totalMeals,
-          ],
-          [
-            '%',
-            `${row.totalStudentsPercent}%`,
-            `${row.absentStudentsPercent}%`,
-            `${row.excusedPercent}%`,
-            `${row.sickPercent}%`,
-            `${row.noReasonPercent}%`,
-            `${row.mealPercent}%`,
-          ],
+        ? this.classRows().map((row) => [
+          row.className,
+          row.presentStudents,
+          `${row.totalStudentsPercent}%`,
+          row.studentsWithAbsences,
+          `${row.absentStudentsPercent}%`,
+          row.excusedStudents,
+          `${row.excusedPercent}%`,
+          row.sickStudents,
+          `${row.sickPercent}%`,
+          row.noReasonStudents,
+          `${row.noReasonPercent}%`,
+          row.totalMeals,
+          `${row.mealPercent}%`,
         ])
-        : this.classDayRows().flatMap((row) => [
-          [
-            row.className,
-            row.totalStudents,
-            row.totalAbsences,
-            row.excusedAbsences,
-            row.sickAbsences,
-            row.noReasonAbsences,
-            row.totalMeals,
-          ],
-          [
-            '%',
-            `${row.totalStudentsPercent}%`,
-            `${row.absentStudentsPercent}%`,
-            `${row.excusedPercent}%`,
-            `${row.sickPercent}%`,
-            `${row.noReasonPercent}%`,
-            `${row.mealPercent}%`,
-          ],
+        : this.classDayRows().map((row) => [
+          row.className,
+          row.presentStudents,
+          `${row.totalStudentsPercent}%`,
+          row.totalAbsences,
+          `${row.absentStudentsPercent}%`,
+          row.excusedAbsences,
+          `${row.excusedPercent}%`,
+          row.sickAbsences,
+          `${row.sickPercent}%`,
+          row.noReasonAbsences,
+          `${row.noReasonPercent}%`,
+          row.totalMeals,
+          `${row.mealPercent}%`,
         ]);
       const classRows = [
         ['Звіт по класах'],
         ['Період', periodLabel],
         ['День', dayLabel],
         [],
-        ['Загалом', summary.totalStudents, summary.absentStudents, summary.excusedAbsences, summary.sickAbsences, summary.noReasonAbsences, summary.totalMeals],
-        ['%', `${summary.studentPercent}%`, `${summary.absentPercent}%`, `${summary.excusedPercent}%`, `${summary.sickPercent}%`, `${summary.noReasonPercent}%`, `${summary.mealPercent}%`],
+        [
+          'Загалом',
+          summary.presentStudents,
+          `${summary.studentPercent}%`,
+          summary.absentStudents,
+          `${summary.absentPercent}%`,
+          summary.excusedAbsences,
+          `${summary.excusedPercent}%`,
+          summary.sickAbsences,
+          `${summary.sickPercent}%`,
+          summary.noReasonAbsences,
+          `${summary.noReasonPercent}%`,
+          summary.totalMeals,
+          `${summary.mealPercent}%`,
+        ],
         [],
-        ['Клас', 'Всього учнів', 'Всього відсутніх', 'п/п', 'хв.', 'б.п.', 'Харчувались'],
+        ['Клас', 'Присутні', '%', 'Всього відсутніх', '%', 'п/п', '%', 'хв.', '%', 'б.п.', '%', 'Харчувались', '%'],
         ...classReportRows,
       ];
       const classSheet = XLSX.utils.aoa_to_sheet(classRows);
       classSheet['!cols'] = [
         { wch: 14 },
         { wch: 12 },
+        { wch: 8 },
         { wch: 18 },
         { wch: 8 },
         { wch: 8 },
         { wch: 8 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 8 },
         { wch: 14 },
+        { wch: 8 },
       ];
-      classSheet['!autofilter'] = { ref: `A8:G${Math.max(8, classRows.length)}` };
+      classSheet['!autofilter'] = { ref: `A7:M${Math.max(7, classRows.length)}` };
       XLSX.utils.book_append_sheet(workbook, classSheet, 'По класах');
       XLSX.writeFile(workbook, `school-class-report-${this.selectedMonth()}-${this.selectedClassReportDay()}.xlsx`);
       return;

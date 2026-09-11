@@ -209,52 +209,47 @@
           <thead>
             <tr>
               <th></th>
-              <th>Всього учнів</th>
+              <th>Присутні</th>
+              <th>%</th>
               <th>Всього відсутніх</th>
+              <th>%</th>
               <th>п/п</th>
+              <th>%</th>
               <th>хв.</th>
+              <th>%</th>
               <th>б.п.</th>
+              <th>%</th>
               <th>Харчувались</th>
+              <th>%</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th>Загалом</th>
-              <td><strong>{{ classReportSummary().totalStudents }}</strong></td>
-              <td>
+              <td title="Присутні від загальної кількості учнів школи" aria-label="Присутні від загальної кількості учнів школи">
+                <strong class="report-number--success">{{ classReportSummary().presentStudents }}</strong>
+              </td>
+              <td title="Присутні від загальної кількості учнів школи" aria-label="Присутні від загальної кількості учнів школи"><strong class="report-percent report-number--success">{{ classReportSummary().studentPercent }}%</strong></td>
+              <td title="Відсутні від загальної кількості учнів школи" aria-label="Відсутні від загальної кількості учнів школи">
                 <strong [class.report-number--danger]="classReportSummary().absentStudents > 0">{{ classReportSummary().absentStudents }}</strong>
               </td>
-              <td>
+              <td title="Відсутні від загальної кількості учнів школи" aria-label="Відсутні від загальної кількості учнів школи"><strong class="report-percent" [class.report-number--danger]="classReportSummary().absentPercent > 0">{{ classReportSummary().absentPercent }}%</strong></td>
+              <td title="Поважна причина від загальної кількості учнів школи" aria-label="Поважна причина від загальної кількості учнів школи">
                 <strong [class.report-number--info]="classReportSummary().excusedAbsences > 0">{{ classReportSummary().excusedAbsences }}</strong>
               </td>
-              <td>
+              <td title="Поважна причина від загальної кількості учнів школи" aria-label="Поважна причина від загальної кількості учнів школи"><strong class="report-percent" [class.report-number--info]="classReportSummary().excusedPercent > 0">{{ classReportSummary().excusedPercent }}%</strong></td>
+              <td title="Хворі від загальної кількості учнів школи" aria-label="Хворі від загальної кількості учнів школи">
                 <strong [class.report-number--warning]="classReportSummary().sickAbsences > 0">{{ classReportSummary().sickAbsences }}</strong>
               </td>
-              <td>
+              <td title="Хворі від загальної кількості учнів школи" aria-label="Хворі від загальної кількості учнів школи"><strong class="report-percent" [class.report-number--warning]="classReportSummary().sickPercent > 0">{{ classReportSummary().sickPercent }}%</strong></td>
+              <td title="Без причини від загальної кількості учнів школи" aria-label="Без причини від загальної кількості учнів школи">
                 <strong [class.report-number--danger]="classReportSummary().noReasonAbsences > 0">{{ classReportSummary().noReasonAbsences }}</strong>
               </td>
-              <td><strong class="report-number--success">{{ classReportSummary().totalMeals }}</strong></td>
-            </tr>
-            <tr class="class-report-summary__percent-row">
-              <th>%</th>
-              <td title="Присутні від загальної кількості учнів школи" aria-label="Присутні від загальної кількості учнів школи">
-                <strong class="report-number--success">{{ classReportSummary().studentPercent }}%</strong>
-              </td>
-              <td title="Відсутні від загальної кількості учнів школи" aria-label="Відсутні від загальної кількості учнів школи">
-                <strong [class.report-number--danger]="classReportSummary().absentPercent > 0">{{ classReportSummary().absentPercent }}%</strong>
-              </td>
-              <td title="Поважна причина від загальної кількості учнів школи" aria-label="Поважна причина від загальної кількості учнів школи">
-                <strong [class.report-number--info]="classReportSummary().excusedPercent > 0">{{ classReportSummary().excusedPercent }}%</strong>
-              </td>
-              <td title="Хворі від загальної кількості учнів школи" aria-label="Хворі від загальної кількості учнів школи">
-                <strong [class.report-number--warning]="classReportSummary().sickPercent > 0">{{ classReportSummary().sickPercent }}%</strong>
-              </td>
-              <td title="Без причини від загальної кількості учнів школи" aria-label="Без причини від загальної кількості учнів школи">
-                <strong [class.report-number--danger]="classReportSummary().noReasonPercent > 0">{{ classReportSummary().noReasonPercent }}%</strong>
-              </td>
+              <td title="Без причини від загальної кількості учнів школи" aria-label="Без причини від загальної кількості учнів школи"><strong class="report-percent" [class.report-number--danger]="classReportSummary().noReasonPercent > 0">{{ classReportSummary().noReasonPercent }}%</strong></td>
               <td title="Харчувались від кількості присутніх учнів" aria-label="Харчувались від кількості присутніх учнів">
-                <strong class="report-number--success">{{ classReportSummary().mealPercent }}%</strong>
+                <strong class="report-number--success">{{ classReportSummary().totalMeals }}</strong>
               </td>
+              <td title="Харчувались від кількості присутніх учнів" aria-label="Харчувались від кількості присутніх учнів"><strong class="report-percent report-number--success">{{ classReportSummary().mealPercent }}%</strong></td>
             </tr>
           </tbody>
         </table>
@@ -266,19 +261,26 @@
             <thead>
               <tr>
                 <th>Клас</th>
-                <th>Всього учнів</th>
+                <th>Присутні</th>
+                <th>%</th>
                 <th>Всього відсутніх</th>
+                <th>%</th>
                 <th>п/п</th>
+                <th>%</th>
                 <th>хв.</th>
+                <th>%</th>
                 <th>б.п.</th>
+                <th>%</th>
                 <th>Харчувались</th>
+                <th>%</th>
               </tr>
             </thead>
             <tbody>
               @for (row of classRows(); track row.className) {
                 <tr>
                   <td><strong>{{ row.className }}</strong></td>
-                  <td><strong>{{ row.totalStudents }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.presentStudents }}</strong></td>
+                  <td title="Присутні від кількості учнів класу"><strong class="report-percent report-number--success">{{ row.totalStudentsPercent }}%</strong></td>
                   <td>
                     <button
                       class="report-value"
@@ -291,19 +293,15 @@
                       {{ row.studentsWithAbsences }}
                     </button>
                   </td>
+                  <td title="Відсутні від кількості учнів класу"><strong class="report-percent" [class.report-number--danger]="row.absentStudentsPercent > 0">{{ row.absentStudentsPercent }}%</strong></td>
                   <td><strong [class.report-number--info]="row.excusedStudents > 0">{{ row.excusedStudents }}</strong></td>
+                  <td title="Поважна причина від кількості учнів класу"><strong class="report-percent" [class.report-number--info]="row.excusedPercent > 0">{{ row.excusedPercent }}%</strong></td>
                   <td><strong [class.report-number--warning]="row.sickStudents > 0">{{ row.sickStudents }}</strong></td>
+                  <td title="Хворі від кількості учнів класу"><strong class="report-percent" [class.report-number--warning]="row.sickPercent > 0">{{ row.sickPercent }}%</strong></td>
                   <td><strong [class.report-number--danger]="row.noReasonStudents > 0">{{ row.noReasonStudents }}</strong></td>
+                  <td title="Без причини від кількості учнів класу"><strong class="report-percent" [class.report-number--danger]="row.noReasonPercent > 0">{{ row.noReasonPercent }}%</strong></td>
                   <td><strong class="report-number--success">{{ row.totalMeals }}</strong></td>
-                </tr>
-                <tr class="class-report-table__percent-row">
-                  <td>%</td>
-                  <td title="Присутні від кількості учнів класу"><strong class="report-number--success">{{ row.totalStudentsPercent }}%</strong></td>
-                  <td title="Відсутні від кількості учнів класу"><strong [class.report-number--danger]="row.absentStudentsPercent > 0">{{ row.absentStudentsPercent }}%</strong></td>
-                  <td title="Поважна причина від кількості учнів класу"><strong [class.report-number--info]="row.excusedPercent > 0">{{ row.excusedPercent }}%</strong></td>
-                  <td title="Хворі від кількості учнів класу"><strong [class.report-number--warning]="row.sickPercent > 0">{{ row.sickPercent }}%</strong></td>
-                  <td title="Без причини від кількості учнів класу"><strong [class.report-number--danger]="row.noReasonPercent > 0">{{ row.noReasonPercent }}%</strong></td>
-                  <td title="Харчувались від кількості присутніх учнів"><strong class="report-number--success">{{ row.mealPercent }}%</strong></td>
+                  <td title="Харчувались від кількості присутніх учнів"><strong class="report-percent report-number--success">{{ row.mealPercent }}%</strong></td>
                 </tr>
               }
             </tbody>
@@ -313,19 +311,26 @@
             <thead>
               <tr>
                 <th>Клас</th>
-                <th>Всього учнів</th>
+                <th>Присутні</th>
+                <th>%</th>
                 <th>Всього відсутніх</th>
+                <th>%</th>
                 <th>п/п</th>
+                <th>%</th>
                 <th>хв.</th>
+                <th>%</th>
                 <th>б.п.</th>
+                <th>%</th>
                 <th>Харчувались</th>
+                <th>%</th>
               </tr>
             </thead>
             <tbody>
               @for (row of classDayRows(); track row.className) {
                 <tr [class.class-report-table__row--processed]="row.attendanceConfirmed || row.totalAbsences > 0">
                   <td><strong>{{ row.className }}</strong></td>
-                  <td><strong>{{ row.totalStudents }}</strong></td>
+                  <td><strong class="report-number--success">{{ row.presentStudents }}</strong></td>
+                  <td title="Присутні від кількості учнів класу"><strong class="report-percent report-number--success">{{ row.totalStudentsPercent }}%</strong></td>
                   <td>
                     <button
                       class="report-value"
@@ -338,19 +343,15 @@
                       {{ row.totalAbsences }}
                     </button>
                   </td>
+                  <td title="Відсутні від кількості учнів класу"><strong class="report-percent" [class.report-number--danger]="row.absentStudentsPercent > 0">{{ row.absentStudentsPercent }}%</strong></td>
                   <td><strong [class.report-number--info]="row.excusedAbsences > 0">{{ row.excusedAbsences }}</strong></td>
+                  <td title="Поважна причина від кількості учнів класу"><strong class="report-percent" [class.report-number--info]="row.excusedPercent > 0">{{ row.excusedPercent }}%</strong></td>
                   <td><strong [class.report-number--warning]="row.sickAbsences > 0">{{ row.sickAbsences }}</strong></td>
+                  <td title="Хворі від кількості учнів класу"><strong class="report-percent" [class.report-number--warning]="row.sickPercent > 0">{{ row.sickPercent }}%</strong></td>
                   <td><strong [class.report-number--danger]="row.noReasonAbsences > 0">{{ row.noReasonAbsences }}</strong></td>
+                  <td title="Без причини від кількості учнів класу"><strong class="report-percent" [class.report-number--danger]="row.noReasonPercent > 0">{{ row.noReasonPercent }}%</strong></td>
                   <td><strong class="report-number--success">{{ row.totalMeals }}</strong></td>
-                </tr>
-                <tr class="class-report-table__percent-row">
-                  <td>%</td>
-                  <td title="Присутні від кількості учнів класу"><strong class="report-number--success">{{ row.totalStudentsPercent }}%</strong></td>
-                  <td title="Відсутні від кількості учнів класу"><strong [class.report-number--danger]="row.absentStudentsPercent > 0">{{ row.absentStudentsPercent }}%</strong></td>
-                  <td title="Поважна причина від кількості учнів класу"><strong [class.report-number--info]="row.excusedPercent > 0">{{ row.excusedPercent }}%</strong></td>
-                  <td title="Хворі від кількості учнів класу"><strong [class.report-number--warning]="row.sickPercent > 0">{{ row.sickPercent }}%</strong></td>
-                  <td title="Без причини від кількості учнів класу"><strong [class.report-number--danger]="row.noReasonPercent > 0">{{ row.noReasonPercent }}%</strong></td>
-                  <td title="Харчувались від кількості присутніх учнів"><strong class="report-number--success">{{ row.mealPercent }}%</strong></td>
+                  <td title="Харчувались від кількості присутніх учнів"><strong class="report-percent report-number--success">{{ row.mealPercent }}%</strong></td>
                 </tr>
               }
             </tbody>
